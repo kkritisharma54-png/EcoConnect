@@ -52,10 +52,12 @@ export default function EcoAuth({ onBack,
 
       // ✅ Clean up URL after OAuth redirect
       window.history.replaceState({}, document.title, "/");
+    } else {
+      localStorage.removeItem("eco_has_visited");
     }
   };
 
-  // ✅ Also listen for Supabase auth state changes (OAuth callback happens async)
+  // Listen for Supabase auth state changes
   const { data: listener } = supabase.auth.onAuthStateChange(
     async (_event, session) => {
       if (session?.user) {
