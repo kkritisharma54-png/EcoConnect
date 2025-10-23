@@ -265,7 +265,13 @@ const EcoDashboard = ({ userRole, userName, onNavigateToLessons, onNavigateToCha
             
             <Button
               variant="outline"
-              onClick={onLogout}
+              onClick={async () => {
+  await supabase.auth.signOut();
+  localStorage.removeItem("eco_has_visited");
+  localStorage.removeItem("eco_role");
+  window.location.href = "/"; // redirects back to Get Started page
+}}
+
               className="border-emerald-200 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800 hover:border-emerald-300"
             >
               <LogOut size={16} className="mr-2" />
