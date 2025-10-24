@@ -207,7 +207,6 @@ const EcoDashboard = ({ userRole, userName, onNavigateToLessons, onNavigateToCha
             </Button>
           </div>
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column */}
           <div className="lg:col-span-2 space-y-8">
@@ -215,7 +214,6 @@ const EcoDashboard = ({ userRole, userName, onNavigateToLessons, onNavigateToCha
             <Card className="bg-white/80 backdrop-blur-sm border-emerald-200 shadow-lg p-8 flex justify-center">
               <CircularProgress percentage={progressPercentage} points={ecoPoints} maxPoints={maxEcoPoints} />
             </Card>
-
             {/* Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {stats.map((stat) => {
