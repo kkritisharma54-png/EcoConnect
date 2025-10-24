@@ -42,6 +42,29 @@ const EcoDashboard = ({ userRole, userName, onNavigateToLessons, onNavigateToCha
     const timer = setTimeout(() => setShowFloatingElements(true), 300);
     return () => clearTimeout(timer);
   }, []);
+  useEffect(() => {
+  const recordActivity = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const today = new Date().toISOString().split('T')[0];
+
+    // check if already recorded
+    const { data: existing, error: existingError } = await supabase
+      .from('eco_activity')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('active_date', today);
+
+    if (!existingError && existing.length === 0) {
+      await supabase.from('eco_activity').insert([
+        { user_id: user.id, active_date: today }
+      ]);
+    }
+  };
+
+  recordActivity();
+}, []);
 
   const ecoPoints = 1250;
   const maxEcoPoints = 1500;
