@@ -10,8 +10,14 @@ interface EcoContributionCalendarProps {
 
 const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProps) => {
   const [activityMap, setActivityMap] = useState<Record<string, number>>({});
+  const [stats, setStats] = useState({
+    activeDays: 0,
+    totalActions: 0,
+    currentStreak: 0,
+    longestStreak: 0,
+  });
 
-  // 🗓 Fetch real activity data from Supabase
+  // 🗓 Fetch activity from Supabase
   useEffect(() => {
     const fetchActivity = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -33,13 +39,45 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
           map[active_date] = (map[active_date] || 0) + 1;
         });
         setActivityMap(map);
+        calculateStreaks(map);
       }
     };
 
     fetchActivity();
   }, []);
 
-  // Generate 6 months (Apr–Sep style layout)
+  // 🌿 Calculate streaks (current + longest)
+  const calculateStreaks = (map: Record<string, number>) => {
+    const dates = Object.keys(map).sort();
+    if (dates.length === 0) {
+      setStats({ activeDays: 0, totalActions: 0, currentStreak: 0, longestStreak: 0 });
+      return;
+    }
+
+    let longest = 1;
+    let current = 1;
+    const totalActions = Object.values(map).reduce((a, b) => a + b, 0);
+    const activeDays = dates.length;
+
+    for (let i = 1; i < dates.length; i++) {
+      const prev = new Date(dates[i - 1]);
+      const curr = new Date(dates[i]);
+      const diffDays = (curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24);
+      if (diffDays === 1) current++;
+      else current = 1;
+      longest = Math.max(longest, current);
+    }
+
+    // Check if streak continues to today
+    const lastDate = new Date(dates[dates.length - 1]);
+    const today = new Date();
+    const gap = (today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
+    if (gap > 1) current = 0;
+
+    setStats({ activeDays, totalActions, currentStreak: current, longestStreak: longest });
+  };
+
+  // Generate 6-month labels
   const months = Array.from({ length: 6 }, (_, i) => {
     const date = new Date();
     date.setMonth(date.getMonth() - (5 - i));
@@ -48,7 +86,7 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
 
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  // Helper for color levels based on activity count
+  // Color intensity based on actions/day
   const getActivityColor = (count: number) => {
     if (count === 0) return 'bg-slate-200 dark:bg-slate-700';
     if (count === 1) return 'bg-emerald-100 dark:bg-emerald-800';
@@ -57,12 +95,12 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
     return 'bg-emerald-400 dark:bg-emerald-500';
   };
 
-  // Build calendar grid for past 6 months
+  // Build grid for past 6 months
   const generateCalendarData = () => {
     const today = new Date();
     const data: number[][] = [];
     const daysPerWeek = 7;
-    const totalWeeks = 6 * 4; // roughly 6 months * 4 weeks
+    const totalWeeks = 6 * 4;
 
     for (let w = 0; w < totalWeeks; w++) {
       const weekData: number[] = [];
@@ -70,8 +108,7 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
         const day = new Date();
         day.setDate(today.getDate() - (totalWeeks * 7 - (w * 7 + d)));
         const key = day.toISOString().split('T')[0];
-        const count = activityMap[key] || 0;
-        weekData.push(count);
+        weekData.push(activityMap[key] || 0);
       }
       data.push(weekData);
     }
@@ -89,6 +126,7 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
           Eco Contribution Calendar
         </CardTitle>
       </CardHeader>
+
       <CardContent className="p-6">
         <div className="space-y-4">
           {/* Month labels */}
@@ -104,7 +142,7 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
           <div className="flex gap-1">
             {/* Day labels */}
             <div className="flex flex-col gap-1 mr-2">
-              <div className="h-3"></div> {/* Spacer */}
+              <div className="h-3"></div>
               {days.map((day, index) => (
                 <div 
                   key={day}
@@ -148,23 +186,19 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
             <span>More</span>
           </div>
 
-          {/* Summary stats */}
+          {/* Dynamic stats */}
           <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-200 dark:border-gray-700">
             <div className="text-center">
-              <div className="text-2xl text-emerald-600 dark:text-emerald-400">{Object.keys(activityMap).length}</div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Active days</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl text-emerald-600 dark:text-emerald-400">
-                {Math.max(...Object.values(activityMap), 0)}
-              </div>
-              <div className="text-xs text-gray-600 dark:text-gray-400">Max actions/day</div>
-            </div>
-            <div className="text-center">
-              <div className="text-2xl text-emerald-600 dark:text-emerald-400">
-                {Object.values(activityMap).reduce((a, b) => a + b, 0)}
-              </div>
+              <div className="text-2xl text-emerald-600 dark:text-emerald-400">{stats.totalActions}</div>
               <div className="text-xs text-gray-600 dark:text-gray-400">Total actions</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl text-emerald-600 dark:text-emerald-400">{stats.longestStreak}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Longest streak</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl text-emerald-600 dark:text-emerald-400">{stats.currentStreak}</div>
+              <div className="text-xs text-gray-600 dark:text-gray-400">Current streak</div>
             </div>
           </div>
         </div>

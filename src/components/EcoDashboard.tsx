@@ -261,18 +261,7 @@ const EcoDashboard = ({ userRole, userName, onNavigateToLessons, onNavigateToCha
             </div>
 
             {/* Calendar */}
-            <Card className="bg-white/80 backdrop-blur-sm border-emerald-200 shadow-lg">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-3 text-slate-800">
-                  <Star className="text-emerald-600" size={24} />
-                  Eco Contribution Calendar
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <EcoContributionCalendar />
-              </CardContent>
-            </Card>
-
+            <EcoContributionCalendar />
             {/* Active Challenges */}
             <Card className="bg-white/80 backdrop-blur-sm border-emerald-200 shadow-lg">
               <CardHeader>
