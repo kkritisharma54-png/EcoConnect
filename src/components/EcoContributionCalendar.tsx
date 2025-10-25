@@ -43,7 +43,10 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
         calculateStreaks(map);
       }
     };
+
     fetchActivity();
+
+    // ✅ Live updates using Supabase Realtime
     const channel = supabase
       .channel('realtime:eco_activity')
       .on(
@@ -53,7 +56,7 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
       )
       .subscribe();
 
-  // ✅ Cleanup on unmount
+    // ✅ Cleanup on unmount
     return () => {
       supabase.removeChannel(channel);
     };
@@ -99,13 +102,11 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
 
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  // Color intensity based on actions/day
+  // 🌈 Improved color visibility for small streaks
   const getActivityColor = (count: number) => {
-    if (count === 0) return 'bg-slate-200 dark:bg-slate-700';
-    if (count === 1) return 'bg-emerald-100 dark:bg-emerald-800';
-    if (count === 2) return 'bg-emerald-200 dark:bg-emerald-700';
-    if (count === 3) return 'bg-emerald-300 dark:bg-emerald-600';
-    return 'bg-emerald-400 dark:bg-emerald-500';
+    if (count <= 0) return 'bg-slate-300 dark:bg-slate-700';
+    const opacity = Math.min(1, 0.35 + count * 0.25);
+    return `bg-emerald-500/[${opacity.toFixed(2)}] dark:bg-emerald-400/[${opacity.toFixed(2)}]`;
   };
 
   // Build grid for past 6 months
@@ -130,6 +131,7 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
   };
 
   const data = generateCalendarData();
+  const today = new Date().toISOString().split('T')[0];
 
   return (
     <Card className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-emerald-200 dark:border-gray-700 ${className}`}>
@@ -172,17 +174,24 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
             <div className="flex gap-1 flex-1">
               {data.map((week, weekIndex) => (
                 <div key={weekIndex} className="flex flex-col gap-1 flex-1">
-                  {week.map((count, dayIndex) => (
-                    <motion.div
-                      key={`${weekIndex}-${dayIndex}`}
-                      className={`w-3 h-3 rounded-sm ${getActivityColor(count)} cursor-pointer`}
-                      initial={{ opacity: 0, scale: 0 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: (weekIndex * 7 + dayIndex) * 0.005, duration: 0.2 }}
-                      whileHover={{ scale: 1.2, transition: { duration: 0.1 } }}
-                      title={count === 0 ? 'No activity' : `${count} eco-actions`}
-                    />
-                  ))}
+                  {week.map((count, dayIndex) => {
+                    const day = new Date();
+                    day.setDate(day.getDate() - (data.length * 7 - (weekIndex * 7 + dayIndex)));
+                    const key = day.toISOString().split('T')[0];
+                    return (
+                      <motion.div
+                        key={`${weekIndex}-${dayIndex}`}
+                        className={`w-3.5 h-3.5 rounded-sm ${getActivityColor(count)} ${
+                          key === today ? 'ring-2 ring-emerald-600' : ''
+                        } cursor-pointer`}
+                        initial={{ opacity: 0, scale: 0 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: (weekIndex * 7 + dayIndex) * 0.005, duration: 0.2 }}
+                        whileHover={{ scale: 1.2, transition: { duration: 0.1 } }}
+                        title={count === 0 ? 'No activity' : `${count} eco-actions`}
+                      />
+                    );
+                  })}
                 </div>
               ))}
             </div>
