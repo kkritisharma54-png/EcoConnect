@@ -8,82 +8,59 @@ import {
   Target,
   Star,
   Award,
-  ArrowRight,
+  Users,
   CheckCircle,
-  Droplets,
+  Clock,
+  Play,
   TreePine,
+  Droplets,
   Sun,
   Wind,
-  Flower,
-  Lock,
-  Crown,
-  LogOut,
 } from 'lucide-react';
-import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
-import { Progress } from './ui/progress';
-import { ImageWithFallback } from './figma/ImageWithFallback';
+import { Button } from './ui/button';
 import EcoContributionCalendar from './EcoContributionCalendar';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../lib/supabaseClient';
 
-interface EcoDashboardProps {
-  userRole: 'student' | 'teacher' | 'ngo';
-  userName: string;
-  onNavigateToLessons: () => void;
-  onNavigateToChallenges: () => void;
-  onLogout: () => void;
-}
-
-const EcoDashboard = ({
-  userRole,
-  userName,
-  onNavigateToLessons,
-  onNavigateToChallenges,
-}: EcoDashboardProps) => {
+const EcoDashboard = () => {
   const [showFloatingElements, setShowFloatingElements] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
-  const [refreshCalendar, setRefreshCalendar] = useState(false);
 
-  // Floating animation timer
+  // Step 1: Floating nature icons
   useEffect(() => {
     const timer = setTimeout(() => setShowFloatingElements(true), 300);
     return () => clearTimeout(timer);
   }, []);
 
-  // Record today's activity once logged in
+  // Step 2: Record user activity in Supabase
   useEffect(() => {
     const recordActivity = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const today = new Date().toISOString().split('T')[0];
 
-      const { data: existing, error: existingError } = await supabase
+      const { data, error } = await supabase
         .from('eco_activity')
         .select('*')
         .eq('user_id', user.id)
-        .eq('active_date', today);
+        .eq('active_date', today)
+        .single();
 
-      if (!existingError && existing.length === 0) {
+      if (!data && !error) {
         await supabase.from('eco_activity').insert([
           { user_id: user.id, active_date: today },
         ]);
-        setRefreshCalendar((prev) => !prev); // refresh calendar on insert
       }
     };
 
     recordActivity();
   }, []);
 
-  // Fetch streak dynamically
+  // Step 3: Fetch and calculate user streak
   useEffect(() => {
     const fetchStreak = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data, error } = await supabase
@@ -96,293 +73,182 @@ const EcoDashboard = ({
 
       let streak = 0;
       let currentDate = new Date();
-
       for (const row of data) {
         const activeDate = new Date(row.active_date);
         const diffDays = Math.floor(
           (currentDate.getTime() - activeDate.getTime()) /
             (1000 * 60 * 60 * 24)
         );
-
-        if (diffDays === 0 || diffDays === streak) {
-          streak++;
-        } else {
-          break;
-        }
+        if (diffDays === 0 || diffDays === streak) streak++;
+        else break;
       }
-
       setCurrentStreak(streak);
     };
 
     fetchStreak();
-  }, [refreshCalendar]);
+  }, []);
 
-  // Points and progress
-  const ecoPoints = 1250;
-  const maxEcoPoints = 1500;
-  const progressPercentage = (ecoPoints / maxEcoPoints) * 100;
-
-  // Stats data
-  const stats = [
-    {
-      title: 'Challenges Done',
-      value: 12,
-      icon: Target,
-      color: 'from-emerald-500 to-green-500',
-    },
-    {
-      title: 'Lessons Learned',
-      value: 8,
-      icon: BookOpen,
-      color: 'from-blue-500 to-cyan-500',
-    },
-    {
-      title: 'Badges Earned',
-      value: 5,
-      icon: Award,
-      color: 'from-yellow-500 to-orange-500',
-    },
+  const natureIcons = [
+    { Icon: Leaf, color: 'text-emerald-500' },
+    { Icon: Flame, color: 'text-orange-500' },
+    { Icon: TreePine, color: 'text-green-700' },
+    { Icon: Droplets, color: 'text-cyan-500' },
+    { Icon: Sun, color: 'text-yellow-400' },
+    { Icon: Wind, color: 'text-blue-400' },
   ];
-
-  // Active challenges
-  const activeChallenges = [
-    {
-      id: 1,
-      title: 'Water Conservation Week',
-      description: 'Save 50 liters of water this week',
-      progress: 75,
-      status: 'active',
-      daysLeft: 3,
-      points: 150,
-      icon: Droplets,
-      color: 'from-blue-500 to-cyan-500',
-    },
-    {
-      id: 2,
-      title: 'Plant a Tree',
-      description: 'Plant and document a new tree',
-      progress: 0,
-      status: 'pending',
-      daysLeft: 7,
-      points: 200,
-      icon: TreePine,
-      color: 'from-green-500 to-emerald-500',
-    },
-    {
-      id: 3,
-      title: 'Solar Energy Learning',
-      description: 'Complete solar energy module',
-      progress: 100,
-      status: 'completed',
-      daysLeft: 0,
-      points: 100,
-      icon: Sun,
-      color: 'from-yellow-500 to-orange-500',
-    },
-  ];
-
-  // Badges
-  const badges = [
-    { id: 1, name: 'Water Warrior', icon: Droplets, earned: true },
-    { id: 2, name: 'Tree Hugger', icon: TreePine, earned: true },
-    { id: 3, name: 'Solar Scholar', icon: Sun, earned: true },
-    { id: 4, name: 'Wind Walker', icon: Wind, earned: true },
-    { id: 5, name: 'Flower Power', icon: Flower, earned: true },
-    { id: 6, name: 'Eco Master', icon: Crown, earned: false },
-    { id: 7, name: 'Green Guru', icon: Leaf, earned: false },
-    { id: 8, name: 'Planet Protector', icon: Trophy, earned: false },
-  ];
-
-  // Floating icons
-  const floatingElements = [
-    { Icon: Leaf, position: { top: '5%', left: '3%' } },
-    { Icon: TreePine, position: { top: '15%', right: '5%' } },
-    { Icon: Droplets, position: { top: '50%', left: '2%' } },
-    { Icon: Sun, position: { top: '60%', right: '3%' } },
-    { Icon: Wind, position: { bottom: '20%', left: '4%' } },
-    { Icon: Flower, position: { bottom: '35%', right: '6%' } },
-  ];
-
-  // Circular Progress component
-  const CircularProgress = ({
-    percentage,
-    points,
-    maxPoints,
-  }: {
-    percentage: number;
-    points: number;
-    maxPoints: number;
-  }) => {
-    const radius = 120;
-    const strokeWidth = 12;
-    const circumference = 2 * Math.PI * radius;
-    const strokeDasharray = circumference;
-    const strokeDashoffset = circumference - (percentage / 100) * circumference;
-
-    return (
-      <div className="relative flex items-center justify-center">
-        <svg width="280" height="280" className="transform -rotate-90">
-          <circle
-            cx="140"
-            cy="140"
-            r={radius}
-            stroke="rgb(209 213 219)"
-            strokeWidth={strokeWidth}
-            fill="none"
-            className="opacity-20"
-          />
-          <motion.circle
-            cx="140"
-            cy="140"
-            r={radius}
-            stroke="url(#gradient)"
-            strokeWidth={strokeWidth}
-            fill="none"
-            strokeLinecap="round"
-            strokeDasharray={strokeDasharray}
-            initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset }}
-            transition={{ duration: 2, ease: 'easeInOut' }}
-          />
-          <defs>
-            <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-              <stop offset="0%" stopColor="rgb(16 185 129)" />
-              <stop offset="50%" stopColor="rgb(34 197 94)" />
-              <stop offset="100%" stopColor="rgb(20 184 166)" />
-            </linearGradient>
-          </defs>
-        </svg>
-        <div className="absolute text-center">
-          <div className="text-4xl text-emerald-800 mb-2">{points}</div>
-          <div className="text-lg text-emerald-600">/ {maxPoints}</div>
-          <div className="text-sm text-slate-600 mt-1">Eco Points</div>
-        </div>
-      </div>
-    );
-  };
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="relative min-h-screen overflow-hidden bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 p-4"
-    >
-      <div className="absolute inset-0">
-        <ImageWithFallback
-          src="https://images.unsplash.com/photo-1696250863507-262618217c55?auto=format&fit=crop&w=1080&q=80"
-          alt="Forest background"
-          className="w-full h-full object-cover opacity-5"
-        />
-      </div>
+    <div className="min-h-screen bg-gradient-to-br from-emerald-50 via-white to-emerald-100 dark:from-gray-900 dark:via-gray-950 dark:to-gray-900 p-6 relative overflow-hidden">
+      {/* Floating Elements */}
+      {showFloatingElements &&
+        natureIcons.map((item, index) => (
+          <motion.div
+            key={index}
+            className={`absolute ${item.color}`}
+            initial={{ opacity: 0, y: 50, scale: 0 }}
+            animate={{
+              opacity: 0.3,
+              y: [0, -20, 0],
+              x: [0, 10, -10, 0],
+              scale: [1, 1.2, 1],
+            }}
+            transition={{
+              duration: 6 + index * 0.5,
+              repeat: Infinity,
+              delay: index * 0.3,
+            }}
+            style={{
+              top: `${20 + index * 12}%`,
+              left: `${10 + (index % 3) * 30}%`,
+            }}
+          >
+            <item.Icon size={32} />
+          </motion.div>
+        ))}
 
-      {floatingElements.map(({ Icon, position }, index) => (
+      {/* Dashboard Content */}
+      <motion.div
+        className="relative z-10 max-w-5xl mx-auto space-y-8"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5, duration: 0.8 }}
+      >
+        {/* Header Section */}
         <motion.div
-          key={index}
-          className="absolute text-emerald-600/20 pointer-events-none hidden lg:block"
-          style={position}
-          animate={{
-            y: [0, -20, 0],
-            rotate: [0, 10, -10, 0],
-            scale: [1, 1.1, 1],
-          }}
-          transition={{
-            duration: 4 + index * 0.5,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
+          className="text-center"
+          initial={{ y: -20 }}
+          animate={{ y: 0 }}
+          transition={{ duration: 0.5 }}
         >
-          <Icon size={24} />
+          <h1 className="text-4xl font-bold text-emerald-700 dark:text-emerald-400 mb-2">
+            🌿 Eco Dashboard
+          </h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            Track your environmental progress and challenges
+          </p>
         </motion.div>
-      ))}
 
-      <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
-          <div className="flex items-center gap-4 mb-4 md:mb-0">
-            <Leaf className="text-emerald-600" size={32} />
-            <div>
-              <h1 className="text-emerald-800 mb-0">
-                Welcome back, {userName}!
-              </h1>
-              <p className="text-emerald-700">Ready to make a difference today?</p>
-            </div>
-          </div>
+        {/* Streak + Stats */}
+        <motion.div
+          className="grid grid-cols-3 gap-6 text-center"
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card className="bg-white/80 backdrop-blur-sm border-emerald-200 dark:bg-gray-800/80 dark:border-gray-700">
+            <CardContent className="pt-6">
+              <Trophy className="mx-auto text-yellow-500 mb-2" size={28} />
+              <p className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                {currentStreak} Day Streak
+              </p>
+            </CardContent>
+          </Card>
 
-          <div className="flex items-center gap-4">
-            <Badge className="bg-gradient-to-r from-orange-400 to-red-400 text-white border-0 shadow-md flex items-center gap-2">
-              <Flame size={16} />
-              {currentStreak} day streak!
-            </Badge>
+          <Card className="bg-white/80 backdrop-blur-sm border-emerald-200 dark:bg-gray-800/80 dark:border-gray-700">
+            <CardContent className="pt-6">
+              <Target className="mx-auto text-emerald-500 mb-2" size={28} />
+              <p className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                Weekly Goal
+              </p>
+            </CardContent>
+          </Card>
 
-            <Button
-              variant="outline"
-              onClick={async () => {
-                await supabase.auth.signOut();
-                localStorage.clear();
-                window.location.href = '/';
-              }}
-              className="border-emerald-200 text-emerald-700 hover:bg-emerald-50"
-            >
-              <LogOut size={16} className="mr-2" />
-              Logout
-            </Button>
-          </div>
-        </div>
+          <Card className="bg-white/80 backdrop-blur-sm border-emerald-200 dark:bg-gray-800/80 dark:border-gray-700">
+            <CardContent className="pt-6">
+              <Star className="mx-auto text-emerald-500 mb-2" size={28} />
+              <p className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+                Eco Points: 120
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-        {/* Main Content */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Left Column */}
-          <div className="lg:col-span-2 space-y-8">
-            {/* Circular Progress */}
-            <Card className="bg-white/80 backdrop-blur-sm border-emerald-200 shadow-lg p-8 flex justify-center">
-              <CircularProgress
-                percentage={progressPercentage}
-                points={ecoPoints}
-                maxPoints={maxEcoPoints}
-              />
-            </Card>
+        {/* Calendar Section */}
+        <EcoContributionCalendar />
 
-            {/* Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              {stats.map((stat) => {
-                const Icon = stat.icon;
-                return (
-                  <Card
-                    key={stat.title}
-                    className="bg-white/80 backdrop-blur-sm border-emerald-200 shadow-lg text-center p-4"
-                  >
-                    <div
-                      className={`mx-auto mb-3 w-12 h-12 rounded-full bg-gradient-to-r ${stat.color} flex items-center justify-center shadow-lg`}
-                    >
-                      <Icon className="text-white" size={20} />
-                    </div>
-                    <div className="text-2xl text-slate-800 mb-1">{stat.value}</div>
-                    <div className="text-xs text-slate-600">{stat.title}</div>
-                  </Card>
-                );
-              })}
-              <Card className="bg-white/80 backdrop-blur-sm border-emerald-200 shadow-lg text-center p-4">
-                <div className="mx-auto mb-3 w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center shadow-lg">
-                  <Star className="text-white" size={20} />
-                </div>
-                <div className="text-2xl text-slate-800 mb-1">{ecoPoints}</div>
-                <div className="text-xs text-slate-600">Total Points</div>
-              </Card>
-            </div>
+        {/* Challenges Section */}
+        <motion.div
+          className="grid md:grid-cols-2 gap-6"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+        >
+          <Card className="bg-white/80 backdrop-blur-sm border-emerald-200 dark:bg-gray-800/80 dark:border-gray-700">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+                <BookOpen size={24} />
+                Active Challenges
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-gray-700 dark:text-gray-300">
+                <li className="flex items-center gap-2">
+                  <CheckCircle className="text-emerald-500" size={16} />
+                  Plant 5 trees this month
+                </li>
+                <li className="flex items-center gap-2">
+                  <Clock className="text-amber-500" size={16} />
+                  Reduce electricity use by 10%
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
 
-            {/* Calendar */}
-            <EcoContributionCalendar key={refreshCalendar ? 'a' : 'b'} />
+          <Card className="bg-white/80 backdrop-blur-sm border-emerald-200 dark:bg-gray-800/80 dark:border-gray-700">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+                <Award size={24} />
+                Leaderboard
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2 text-gray-700 dark:text-gray-300">
+                <li className="flex justify-between">
+                  <span>🌿 You</span> <span className="font-semibold">#2</span>
+                </li>
+                <li className="flex justify-between">
+                  <span>🌎 GreenGuru</span>{' '}
+                  <span className="font-semibold">#1</span>
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+        </motion.div>
 
-            {/* Active Challenges */}
-            {/* (same as your version — unchanged) */}
-          </div>
-
-          {/* Right Column — Badges only */}
-          {/* (same as your version — unchanged) */}
-        </div>
-      </div>
-    </motion.div>
+        {/* CTA Section */}
+        <motion.div
+          className="text-center pt-6"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.5 }}
+        >
+          <Button className="bg-emerald-600 hover:bg-emerald-700 text-white rounded-full px-6 py-2 flex items-center gap-2">
+            <Play size={16} />
+            Start New Mission
+          </Button>
+        </motion.div>
+      </motion.div>
+    </div>
   );
 };
 
