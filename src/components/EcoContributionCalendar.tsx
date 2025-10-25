@@ -102,11 +102,13 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
 
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-  // 🌈 Improved color visibility for small streaks
-  const getActivityColor = (count: number) => {
-    if (count <= 0) return 'bg-slate-300 dark:bg-slate-700';
-    const opacity = Math.min(1, 0.35 + count * 0.25);
-    return `bg-emerald-500/[${opacity.toFixed(2)}] dark:bg-emerald-400/[${opacity.toFixed(2)}]`;
+  // 🌈 Color intensity using inline style (works correctly)
+  const getActivityStyle = (count: number) => {
+    if (count <= 0) {
+      return { backgroundColor: 'rgba(203, 213, 225, 1)' }; // slate-300
+    }
+    const opacity = Math.min(1, 0.3 + count * 0.25);
+    return { backgroundColor: `rgba(16, 185, 129, ${opacity})` }; // emerald-500 tone
   };
 
   // Build grid for past 6 months
@@ -181,9 +183,10 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
                     return (
                       <motion.div
                         key={`${weekIndex}-${dayIndex}`}
-                        className={`w-3.5 h-3.5 rounded-sm ${getActivityColor(count)} ${
+                        className={`w-3.5 h-3.5 rounded-sm cursor-pointer ${
                           key === today ? 'ring-2 ring-emerald-600' : ''
-                        } cursor-pointer`}
+                        }`}
+                        style={getActivityStyle(count)}
                         initial={{ opacity: 0, scale: 0 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: (weekIndex * 7 + dayIndex) * 0.005, duration: 0.2 }}
@@ -202,7 +205,7 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
             <span>Less</span>
             <div className="flex items-center gap-1">
               {[0, 1, 2, 3, 4].map((level) => (
-                <div key={level} className={`w-3 h-3 rounded-sm ${getActivityColor(level)}`} />
+                <div key={level} className="w-3 h-3 rounded-sm" style={getActivityStyle(level)} />
               ))}
             </div>
             <span>More</span>
