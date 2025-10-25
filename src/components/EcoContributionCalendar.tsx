@@ -36,14 +36,27 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
       if (!error && data) {
         const map: Record<string, number> = {};
         data.forEach(({ active_date }) => {
-          map[active_date] = (map[active_date] || 0) + 1;
+          const dateKey = new Date(active_date).toISOString().split('T')[0];
+          map[dateKey] = (map[dateKey] || 0) + 1;
         });
         setActivityMap(map);
         calculateStreaks(map);
       }
     };
-
     fetchActivity();
+    const channel = supabase
+      .channel('realtime:eco_activity')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'eco_activity' },
+        () => fetchActivity()
+      )
+      .subscribe();
+
+  // ✅ Cleanup on unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // 🌿 Calculate streaks (current + longest)
@@ -72,7 +85,7 @@ const EcoContributionCalendar = ({ className = '' }: EcoContributionCalendarProp
     const lastDate = new Date(dates[dates.length - 1]);
     const today = new Date();
     const gap = (today.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24);
-    if (gap > 1) current = 0;
+    if (gap > 1.5) current = 0;
 
     setStats({ activeDays, totalActions, currentStreak: current, longestStreak: longest });
   };
