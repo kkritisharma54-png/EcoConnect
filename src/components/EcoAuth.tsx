@@ -13,54 +13,35 @@ import {
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent } from "./ui/card";
+
 interface EcoAuthProps {
-  onBack: () => void; // ✅ changed from onBackToSplash to onBack
+  onBack: () => void;
   onAuthSuccess: (role: "student" | "teacher" | "ngo", username: string) => void;
   isDarkTheme: boolean;
   onToggleTheme: () => void;
 }
-export default function EcoAuth({ onBack,
-  onAuthSuccess, }: EcoAuthProps) {
+
+export default function EcoAuth({
+  onBack,
+  onAuthSuccess,
+}: EcoAuthProps) {
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   useEffect(() => {
-  const checkSession = async () => {
-    const { data } = await supabase.auth.getSession();
-    const session = data.session;
+    const checkSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      const session = data.session;
 
-    // Detect if user came via Supabase OAuth/email confirmation
-    const fromRedirect =
-      window.location.href.includes("access_token") ||
-      window.location.href.includes("type=recovery");
+      const fromRedirect =
+        window.location.href.includes("access_token") ||
+        window.location.href.includes("type=recovery");
 
-    const hasVisitedBefore = localStorage.getItem("eco_has_visited");
+      const hasVisitedBefore = localStorage.getItem("eco_has_visited");
 
-    if (session?.user && (fromRedirect || hasVisitedBefore)) {
-      const role =
-        session.user.user_metadata?.role ||
-        localStorage.getItem("eco_role") ||
-        "student";
-      const name =
-        session.user.user_metadata?.full_name ||
-        session.user.email ||
-        "Eco User";
-
-      onAuthSuccess(role, name);
-      localStorage.setItem("eco_has_visited", "true");
-
-      // ✅ Clean up URL after OAuth redirect
-      window.history.replaceState({}, document.title, "/");
-    } else {
-      localStorage.removeItem("eco_has_visited");
-    }
-  };
-
-  // Listen for Supabase auth state changes
-  const { data: listener } = supabase.auth.onAuthStateChange(
-    async (_event, session) => {
-      if (session?.user) {
+      if (session?.user && (fromRedirect || hasVisitedBefore)) {
         const role =
           session.user.user_metadata?.role ||
           localStorage.getItem("eco_role") ||
@@ -72,101 +53,126 @@ export default function EcoAuth({ onBack,
 
         onAuthSuccess(role, name);
         localStorage.setItem("eco_has_visited", "true");
+
+        window.history.replaceState({}, document.title, "/");
+      } else {
+        localStorage.removeItem("eco_has_visited");
       }
-    }
-  );
+    };
 
-  checkSession();
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        if (session?.user) {
+          const role =
+            session.user.user_metadata?.role ||
+            localStorage.getItem("eco_role") ||
+            "student";
+          const name =
+            session.user.user_metadata?.full_name ||
+            session.user.email ||
+            "Eco User";
 
-  return () => {
-    listener?.subscription.unsubscribe();
-  };
-}, []);
+          onAuthSuccess(role, name);
+          localStorage.setItem("eco_has_visited", "true");
+        }
+      }
+    );
+
+    checkSession();
+
+    return () => {
+      listener?.subscription.unsubscribe();
+    };
+  }, []);
 
   // 🟢 Google Login (Popup Mode - No reload)
-const handleGoogleLogin = async () => {
-  if (!selectedRole) return alert("Please select a role first");
-  localStorage.setItem("eco_role", selectedRole);
-  const { data, error } = await supabase.auth.signInWithOAuth({
-    provider: "google",
-    options: {
-      queryParams: {
-        access_type: "offline",
-        prompt: "select_account",
-      },
-      redirectTo: `${window.location.origin}`,
-    },
-  });
-  if (error) {
-    console.error("Google login error:", error.message);
-    alert(error.message);
-    return;
-  }
-  supabase.auth.onAuthStateChange((_event, session) => {
-    if (session?.user) {
-      const name =
-        session.user.user_metadata?.full_name ||
-        session.user.email ||
-        "Eco User";
-      const storedRole = localStorage.getItem("eco_role");
-      const role =
-        (storedRole === "student" ||
-          storedRole === "teacher" ||
-          storedRole === "ngo") &&
-        storedRole
-          ? storedRole
-          : "student";
-      onAuthSuccess(role, name);
-      localStorage.setItem("eco_has_visited", "true");
-    }
-  });
-};
-
-// 📧 Email Login / Signup
-const handleEmailLogin = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!selectedRole) return alert("Please select a role first");
-  localStorage.setItem("eco_role", selectedRole);
-
-  // Ensure selectedRole is one of the expected literals
-  const role =
-    selectedRole === "student" ||
-    selectedRole === "teacher" ||
-    selectedRole === "ngo"
-      ? selectedRole
-      : "student";
-
-  if (isLogin) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    if (error) {
-      alert(error.message);
-      return;
-    }
-
-    if (data.user) {
-      onAuthSuccess(role, data.user.email || "Eco User");
-    }
-  } else {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
+  const handleGoogleLogin = async () => {
+    if (!selectedRole) return alert("Please select a role first");
+    localStorage.setItem("eco_role", selectedRole);
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
       options: {
-        data: { role },
+        queryParams: {
+          access_type: "offline",
+          prompt: "select_account",
+        },
+        redirectTo: `${window.location.origin}`,
       },
     });
     if (error) {
+      console.error("Google login error:", error.message);
       alert(error.message);
       return;
     }
-    alert("Signup successful! Please verify your email.");
-    if (data.user) {
-      onAuthSuccess(role, data.user.email || "Eco User");
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        const name =
+          session.user.user_metadata?.full_name ||
+          session.user.email ||
+          "Eco User";
+        const storedRole = localStorage.getItem("eco_role");
+        const role =
+          (storedRole === "student" ||
+            storedRole === "teacher" ||
+            storedRole === "ngo") &&
+          storedRole
+            ? storedRole
+            : "student";
+        onAuthSuccess(role, name);
+        localStorage.setItem("eco_has_visited", "true");
+      }
+    });
+  };
+
+  // 📧 Email Login / Signup
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedRole) return alert("Please select a role first");
+    localStorage.setItem("eco_role", selectedRole);
+
+    const role =
+      selectedRole === "student" ||
+      selectedRole === "teacher" ||
+      selectedRole === "ngo"
+        ? selectedRole
+        : "student";
+
+    if (isLogin) {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      if (error) {
+        alert(error.message);
+        return;
+      }
+
+      if (data.user) {
+        onAuthSuccess(role, data.user.email || "Eco User");
+      }
+    } else {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { role },
+        },
+      });
+      if (error) {
+        alert(error.message);
+        return;
+      }
+      alert("Signup successful! Please verify your email.");
+      if (data.user) {
+        // INSERT initial points for fresh signups
+        await supabase.from("eco_points").insert([
+          { user_id: data.user.id, points: 0 },
+        ]);
+        onAuthSuccess(role, data.user.email || "Eco User");
+      }
     }
-  }
-};
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-100 via-emerald-50 to-teal-100 flex flex-col items-center justify-center p-6">
       {/* 🌿 Header */}

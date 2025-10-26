@@ -27,6 +27,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import EcoContributionCalendar from './EcoContributionCalendar';
 import { supabase } from '../supabaseClient';
 
+
 interface EcoDashboardProps {
   userRole: 'student' | 'teacher' | 'ngo';
   userName: string;
@@ -34,6 +35,7 @@ interface EcoDashboardProps {
   onNavigateToChallenges: () => void;
   onLogout: () => void;
 }
+
 
 const EcoDashboard = ({
   userRole,
@@ -44,6 +46,30 @@ const EcoDashboard = ({
   const [showFloatingElements, setShowFloatingElements] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [refreshCalendar, setRefreshCalendar] = useState(false);
+
+  // 🟢 NEW: ecoPoints state and Supabase fetching
+  const [ecoPoints, setEcoPoints] = useState(0);
+  const maxEcoPoints = 1500;
+
+  useEffect(() => {
+    const fetchPoints = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('eco_points')
+        .select('points')
+        .eq('user_id', user.id)
+        .single();
+      if (data && !error) {
+        setEcoPoints(data.points);
+      } else {
+        setEcoPoints(0);
+      }
+    };
+    fetchPoints();
+  }, []);
+
+  const progressPercentage = (ecoPoints / maxEcoPoints) * 100;
 
   // Floating animation timer
   useEffect(() => {
@@ -116,11 +142,6 @@ const EcoDashboard = ({
 
     fetchStreak();
   }, [refreshCalendar]);
-
-  // Points and progress
-  const ecoPoints = 1250;
-  const maxEcoPoints = 1500;
-  const progressPercentage = (ecoPoints / maxEcoPoints) * 100;
 
   // Stats data
   const stats = [
@@ -203,7 +224,7 @@ const EcoDashboard = ({
     { Icon: Flower, position: { bottom: '35%', right: '6%' } },
   ];
 
-  // Circular Progress component
+  // Circular Progress component (unchanged)
   const CircularProgress = ({
     percentage,
     points,
@@ -260,7 +281,6 @@ const EcoDashboard = ({
       </div>
     );
   };
-
   return (
     <motion.div
       initial={{ opacity: 0 }}

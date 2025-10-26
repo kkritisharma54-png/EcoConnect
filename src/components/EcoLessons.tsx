@@ -690,7 +690,7 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
                                 variant="outline"
                                 size="sm"
                                 className="w-full justify-start text-xs border-emerald-200 dark:border-gray-600 hover:bg-emerald-50 dark:hover:bg-gray-800"
-                                onClick={(e) => {
+                                onClick={(e: { stopPropagation: () => void; }) => {
                                   e.stopPropagation();
                                   handleActivityClick(activity, lesson.title);
                                 }}
@@ -716,7 +716,7 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
                     <div className="mt-4">
                       {/* Start/Continue/Review Lesson Button with Study Materials */}
                       <Button
-                        onClick={(e) => {
+                        onClick={(e: { stopPropagation: () => void; }) => {
                           e.stopPropagation();
                           // Open the lesson's study materials link
                           if (lesson.learningLink) {
