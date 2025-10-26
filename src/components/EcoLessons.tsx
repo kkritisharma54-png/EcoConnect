@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal } from 'react';
 import { 
   Leaf, 
   Droplets, 
@@ -20,19 +20,19 @@ import {
   Wind,
   Flower,
   Bot,
-  MessageCircle,
   Gamepad2,
   Target,
   ExternalLink
 } from 'lucide-react';
 import { Button } from './ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { Badge } from './ui/badge';
 import { Progress } from './ui/progress';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import ThemeToggle from './ThemeToggle';
+import { supabase } from '../supabaseClient';
 
 // Import all game components
 import WaterUsageSimulator from './games/WaterUsageSimulator';
@@ -57,12 +57,29 @@ interface EcoLessonsProps {
   onToggleTheme: () => void;
 }
 
-const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleTheme }: EcoLessonsProps) => {
+const EcoLessons = ({
+  onBack, userName, onNavigateToAI, isDarkTheme, onToggleTheme
+}: EcoLessonsProps) => {
   const [showFloatingElements, setShowFloatingElements] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedDifficulty, setSelectedDifficulty] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedActivity, setSelectedActivity] = useState(null);
+  const [selectedActivity, setSelectedActivity] = useState<any|null>(null);
+  const [ecoPoints, setEcoPoints] = useState(0);
+
+  // Fetch eco points from Supabase
+  const fetchPoints = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('eco_points')
+      .select('points')
+      .eq('user_id', user.id)
+      .single();
+    setEcoPoints((data && !error) ? data.points : 0);
+  }, []);
+
+  useEffect(() => { fetchPoints(); }, [fetchPoints]);
 
   useEffect(() => {
     const timer = setTimeout(() => setShowFloatingElements(true), 300);
@@ -75,8 +92,7 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
     { id: 'waste', name: 'Waste', icon: Recycle, color: 'text-green-600', bgColor: 'bg-green-100' },
     { id: 'nature', name: 'Nature', icon: TreePine, color: 'text-emerald-600', bgColor: 'bg-emerald-100' },
   ];
-
-  const lessons = [
+    const lessons = [
     {
       id: 1,
       title: 'Water Conservation Basics',
@@ -290,22 +306,20 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
       ]
     }
   ];
-
-  // Filter lessons based on selected filters and search
-  const filteredLessons = lessons.filter(lesson => {
+  // Filtering logic
+  const filteredLessons = lessons.filter((lesson: { category: string; difficulty: string; title: string; description: string; }) => {
     const matchesCategory = selectedCategory === 'all' || lesson.category === selectedCategory;
     const matchesDifficulty = selectedDifficulty === 'all' || lesson.difficulty === selectedDifficulty;
-    const matchesSearch = lesson.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         lesson.description.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch =
+      lesson.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      lesson.description.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesDifficulty && matchesSearch;
   });
 
-  // Statistics
-  const completedLessons = lessons.filter(l => l.status === 'completed').length;
-  const inProgressLessons = lessons.filter(l => l.status === 'in-progress').length;
-  const totalPoints = lessons.filter(l => l.status === 'completed').reduce((sum, l) => sum + l.points, 0);
+  // Stats
+  const completedLessons = lessons.filter((l: { status: string; }) => l.status === 'completed').length;
+  const inProgressLessons = lessons.filter((l: { status: string; }) => l.status === 'in-progress').length;
 
-  // Simplified floating nature elements
   const floatingElements = [
     { Icon: Leaf, position: { top: '8%', left: '3%' } },
     { Icon: TreePine, position: { top: '12%', right: '5%' } },
@@ -332,48 +346,42 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
   };
 
   const handleActivityClick = (activity: any, lessonTitle: string) => {
-    // This will handle opening the specific activity
-    console.log(`Opening activity: ${activity.title} from ${lessonTitle}`);
-    
-    // Set the selected activity to open the game component
-    setSelectedActivity(activity);
+    setSelectedActivity({ ...activity, lessonTitle });
   };
 
-  // Render specific game component based on selected activity
+  // === Game Launch Handler with Points Refresh Callback Pattern ===
   if (selectedActivity) {
     const handleGameBack = () => {
       setSelectedActivity(null);
+      fetchPoints(); // Always refresh after a game closes
     };
 
+    // All games get onPointsUpdated prop so they can call fetchPoints() after points are added
+    const commonProps = { onBack: handleGameBack, userName, onPointsUpdated: fetchPoints };
+
     switch (selectedActivity.id) {
-      case 'water-sim':
-        return <WaterUsageSimulator onBack={handleGameBack} userName={userName} />;
-      case 'leak-puzzle':
-        return <LeakDetectionPuzzle onBack={handleGameBack} userName={userName} />;
-      case 'water-quiz':
-        return <WaterConservationQuiz onBack={handleGameBack} userName={userName} />;
-      case 'solar-puzzles':
-        return <SolarPuzzles onBack={handleGameBack} userName={userName} />;
-      case 'solar-word-game':
-        return <SolarWordGame onBack={handleGameBack} userName={userName} />;
-      case 'compost-jar':
-        return <CompostJarProject onBack={handleGameBack} userName={userName} />;
-      case 'compost-hunt':
-        return <CompostScavengerHunt onBack={handleGameBack} userName={userName} />;
-      case 'species-memory':
-        return <EndangeredSpeciesMemory onBack={handleGameBack} userName={userName} />;
-      case 'habitat-explorer':
-        return <HabitatExplorer onBack={handleGameBack} userName={userName} />;
-      case 'wind-trivia':
-        return <WindEnergyTrivia onBack={handleGameBack} userName={userName} />;
-      case 'wind-turbine-build':
-        return <WindTurbineBuild onBack={handleGameBack} userName={userName} />;
-      case 'seed-bomb-toss':
-        return <SeedBombToss onBack={handleGameBack} userName={userName} />;
-      case 'trash-tag-challenge':
-        return <TrashTagChallenge onBack={handleGameBack} userName={userName} />;
+      case 'water-sim':          return <WaterUsageSimulator onComplete={function (score: number): void {
+        throw new Error('Function not implemented.');
+      } } {...commonProps} />;
+      case 'leak-puzzle':        return <LeakDetectionPuzzle onComplete={function (score: number): void {
+        throw new Error('Function not implemented.');
+      } } {...commonProps} />;
+      case 'water-quiz':         return <WaterConservationQuiz {...commonProps} />;
+      case 'solar-puzzles':      return <SolarPuzzles {...commonProps} />;
+      case 'solar-word-game':    return <SolarWordGame {...commonProps} />;
+      case 'compost-jar':        return <CompostJarProject onComplete={function (score: number): void {
+        throw new Error('Function not implemented.');
+      } } {...commonProps} />;
+      case 'compost-hunt':       return <CompostScavengerHunt {...commonProps} />;
+      case 'species-memory':     return <EndangeredSpeciesMemory onComplete={function (score: number): void {
+        throw new Error('Function not implemented.');
+      } } {...commonProps} />;
+      case 'habitat-explorer':   return <HabitatExplorer {...commonProps} />;
+      case 'wind-trivia':        return <WindEnergyTrivia {...commonProps} />;
+      case 'wind-turbine-build': return <WindTurbineBuild {...commonProps} />;
+      case 'seed-bomb-toss':     return <SeedBombToss {...commonProps} />;
+      case 'trash-tag-challenge':return <TrashTagChallenge {...commonProps} />;
       default:
-        // For any unimplemented games, show a placeholder
         return (
           <div className="relative min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 p-4">
             <div className="relative z-10 max-w-4xl mx-auto">
@@ -410,7 +418,6 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
           className="w-full h-full object-cover opacity-5"
         />
       </div>
-
       {/* Floating Nature Elements */}
       {showFloatingElements && floatingElements.map(({ Icon, position }, index) => (
         <div
@@ -421,7 +428,6 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
           <Icon size={24} />
         </div>
       ))}
-
       <div className="relative z-10 max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8">
@@ -434,7 +440,6 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
               <ArrowLeft size={20} />
               Back
             </Button>
-            
             <div className="flex items-center gap-3">
               <BookOpen className="text-emerald-600 dark:text-emerald-400" size={32} />
               <div>
@@ -443,7 +448,6 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
               </div>
             </div>
           </div>
-          
           <div className="flex items-center gap-4">
             <ThemeToggle
               isDark={isDarkTheme}
@@ -451,7 +455,6 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
             />
           </div>
         </div>
-
         {/* Stats Overview */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-emerald-200 dark:border-gray-700">
@@ -461,7 +464,6 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
               <div className="text-sm text-slate-600 dark:text-gray-400">Completed</div>
             </CardContent>
           </Card>
-          
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-emerald-200 dark:border-gray-700">
             <CardContent className="p-4 text-center">
               <Play className="text-blue-600 dark:text-blue-400 mx-auto mb-2" size={24} />
@@ -469,15 +471,13 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
               <div className="text-sm text-slate-600 dark:text-gray-400">In Progress</div>
             </CardContent>
           </Card>
-          
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-emerald-200 dark:border-gray-700">
             <CardContent className="p-4 text-center">
               <Award className="text-yellow-600 dark:text-yellow-400 mx-auto mb-2" size={24} />
-              <div className="text-xl text-slate-800 dark:text-gray-200">{totalPoints}</div>
+              <div className="text-xl text-slate-800 dark:text-gray-200">{ecoPoints}</div>
               <div className="text-sm text-slate-600 dark:text-gray-400">Points Earned</div>
             </CardContent>
           </Card>
-          
           <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-emerald-200 dark:border-gray-700">
             <CardContent className="p-4 text-center">
               <BookOpen className="text-emerald-600 dark:text-emerald-400 mx-auto mb-2" size={24} />
@@ -486,7 +486,6 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
             </CardContent>
           </Card>
         </div>
-
         {/* Filters and Search */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="flex-1">
@@ -500,7 +499,6 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
               />
             </div>
           </div>
-          
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
             <SelectTrigger className="w-48 border-emerald-200 dark:border-gray-600 bg-white dark:bg-gray-800">
               <SelectValue placeholder="Category" />
@@ -514,7 +512,6 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
               ))}
             </SelectContent>
           </Select>
-          
           <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
             <SelectTrigger className="w-48 border-emerald-200 dark:border-gray-600 bg-white dark:bg-gray-800">
               <SelectValue placeholder="Difficulty" />
@@ -527,7 +524,6 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
             </SelectContent>
           </Select>
         </div>
-
         {/* Category Filters with AI Tutor */}
         <div className="flex flex-col lg:flex-row gap-4 mb-8">
           {/* Category Filters */}
@@ -560,7 +556,6 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
               );
             })}
           </div>
-
           {/* AI Tutor Card */}
           <Card 
             className="bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/30 dark:to-purple-900/30 border-blue-200 dark:border-blue-700 hover:shadow-lg transition-all duration-300 cursor-pointer lg:w-72"
@@ -588,13 +583,11 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
             </CardContent>
           </Card>
         </div>
-
         {/* Lessons Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredLessons.map((lesson, index) => {
+          {filteredLessons.map((lesson: { category: string; id: Key | null | undefined; image: string | undefined; title: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; difficulty: string; status: string; description: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; progress: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; duration: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; students: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; rating: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; points: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined; topics: any[]; activities: { title: any; points: any; }[]; learningLink: string | URL | undefined; }, _index: any) => {
             const categoryData = categories.find(c => c.id === lesson.category);
             const Icon = categoryData?.icon || BookOpen;
-            
             return (
               <div
                 key={lesson.id}
@@ -620,17 +613,14 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
                       </Badge>
                     </div>
                   </div>
-                  
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-slate-800 dark:text-gray-200">{lesson.title}</h3>
                       {getStatusIcon(lesson.status)}
                     </div>
-                    
                     <p className="text-slate-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
                       {lesson.description}
                     </p>
-                    
                     {lesson.progress > 0 && lesson.status !== 'completed' && (
                       <div className="mb-4">
                         <div className="flex items-center justify-between text-sm mb-1">
@@ -640,7 +630,6 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
                         <Progress value={lesson.progress} className="h-2" />
                       </div>
                     )}
-                    
                     <div className="flex items-center justify-between text-sm text-slate-600 dark:text-gray-400 mb-4">
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1">
@@ -661,12 +650,11 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
                         +{lesson.points} pts
                       </div>
                     </div>
-                    
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <div className="text-xs text-slate-500 dark:text-gray-500 uppercase tracking-wider">Topics</div>
                         <div className="flex flex-wrap gap-2">
-                          {lesson.topics.slice(0, 2).map((topic, topicIndex) => (
+                          {lesson.topics.slice(0, 2).map((topic: any, topicIndex: any) => (
                             <Badge key={topicIndex} variant="secondary" className="text-xs">
                               {topic}
                             </Badge>
@@ -678,13 +666,12 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
                           )}
                         </div>
                       </div>
-
                       {/* Activities Section */}
                       {lesson.activities && lesson.activities.length > 0 && (
                         <div className="space-y-2">
                           <div className="text-xs text-slate-500 dark:text-gray-500 uppercase tracking-wider">Activities</div>
                           <div className="space-y-2">
-                            {lesson.activities.slice(0, 2).map((activity, activityIndex) => (
+                            {lesson.activities.slice(0, 2).map((activity: { title: any; points: any; }, activityIndex: any) => (
                               <Button
                                 key={activityIndex}
                                 variant="outline"
@@ -711,18 +698,14 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
                         </div>
                       )}
                     </div>
-
                     {/* Action Button */}
                     <div className="mt-4">
-                      {/* Start/Continue/Review Lesson Button with Study Materials */}
                       <Button
                         onClick={(e: { stopPropagation: () => void; }) => {
                           e.stopPropagation();
-                          // Open the lesson's study materials link
                           if (lesson.learningLink) {
                             window.open(lesson.learningLink, '_blank');
                           } else {
-                            // Fallback: show a message that lesson content is coming soon
                             console.log(`${lesson.status === 'completed' ? 'Reviewing' : 
                                         lesson.status === 'in-progress' ? 'Continuing' : 'Starting'} lesson: ${lesson.title}`);
                           }
@@ -741,7 +724,6 @@ const EcoLessons = ({ onBack, userName, onNavigateToAI, isDarkTheme, onToggleThe
             );
           })}
         </div>
-
         {filteredLessons.length === 0 && (
           <div className="text-center py-12">
             <BookOpen className="text-slate-400 dark:text-gray-500 mx-auto mb-4" size={48} />
