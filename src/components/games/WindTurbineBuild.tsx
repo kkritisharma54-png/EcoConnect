@@ -13,7 +13,6 @@ interface WindTurbineBuildProps {
   onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
   addPointsForUser: (points: number) => Promise<void>;
 }
-
 interface TurbineComponent {
   id: string;
   name: string;
