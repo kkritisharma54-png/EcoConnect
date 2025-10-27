@@ -12,7 +12,7 @@ type Question = {
 
 const WaterConservationQuiz = ({
   onComplete,
-  onExit, // ✅ New prop to handle Exit Quiz navigation
+  onExit,
 }: {
   onComplete?: (score: number) => void;
   onExit?: () => void;
