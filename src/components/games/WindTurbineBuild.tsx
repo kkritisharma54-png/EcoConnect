@@ -1,5 +1,5 @@
-import { motion } from 'motion/react';
-import { useState, useEffect } from 'react';
+ import { motion } from 'motion/react';
+import { useState, useEffect, SetStateAction } from 'react';
 import { Target, Zap, Wrench, Award, ArrowLeft, RotateCcw, Settings, Wind, ChevronUp, ChevronDown } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
@@ -11,6 +11,7 @@ interface WindTurbineBuildProps {
   onBack: () => void;
   userName?: string;
   onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
+  addPointsForUser: (points: number) => Promise<void>;
 }
 
 interface TurbineComponent {
@@ -116,7 +117,7 @@ const materialOptions: TurbineComponent[] = [
   }
 ];
 
-const WindTurbineBuild = ({ onBack, userName = 'Player', onComplete }: WindTurbineBuildProps) => {
+const WindTurbineBuild = ({ onBack, userName = 'Player', onComplete,addPointsForUser }: WindTurbineBuildProps) => {
   const [gameState, setGameState] = useState<'menu' | 'design' | 'testing' | 'completed'>('menu');
   const [budget, setBudget] = useState(200);
   const [selectedBlades, setSelectedBlades] = useState<TurbineComponent | null>(null);
@@ -260,14 +261,20 @@ const WindTurbineBuild = ({ onBack, userName = 'Player', onComplete }: WindTurbi
     
     return bonus;
   };
+  const completeGame = async () => {
+  const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+  const maxScore = 800; // Maximum possible score
 
-  const completeGame = () => {
-    const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-    const maxScore = 800; // Maximum possible score
-    
-    setGameState('completed');
-    onComplete?.(score, maxScore, timeElapsed);
-  };
+  const ecoPoints = Math.floor(score / 4); // Calculate points as before
+  setGameState('completed');
+  onComplete?.(score, maxScore, timeElapsed);
+
+  try {
+    await addPointsForUser(ecoPoints); // <-- Add points to eco_activity table
+  } catch (error) {
+    console.error("Failed to add eco points:", error);
+  }
+};
 
   const resetGame = () => {
     setGameState('menu');
@@ -523,7 +530,7 @@ const WindTurbineBuild = ({ onBack, userName = 'Player', onComplete }: WindTurbi
                     </label>
                     <Slider
                       value={[towerHeight]}
-                      onValueChange={(value) => setTowerHeight(value[0])}
+                      onValueChange={(value: SetStateAction<number>[]) => setTowerHeight(value[0])}
                       min={30}
                       max={150}
                       step={10}
@@ -701,7 +708,7 @@ const WindTurbineBuild = ({ onBack, userName = 'Player', onComplete }: WindTurbi
                       </Button>
                       <Slider
                         value={[turbineAngle]}
-                        onValueChange={(value) => setTurbineAngle(value[0])}
+                        onValueChange={(value: SetStateAction<number>[]) => setTurbineAngle(value[0])}
                         min={0}
                         max={360}
                         step={15}
@@ -866,5 +873,4 @@ const WindTurbineBuild = ({ onBack, userName = 'Player', onComplete }: WindTurbi
 
   return null;
 };
-
 export default WindTurbineBuild;

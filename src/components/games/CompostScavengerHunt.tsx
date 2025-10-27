@@ -5,13 +5,13 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
-
+import { supabase } from '../../supabaseClient';
 interface CompostScavengerHuntProps {
   onBack: () => void;
+  userId?: string;
   userName?: string;
   onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
 }
-
 interface CompostItem {
   id: string;
   name: string;
@@ -21,9 +21,7 @@ interface CompostItem {
   description: string;
   tips: string;
 }
-
 const compostItems: CompostItem[] = [
-  // Greens (Nitrogen-rich)
   {
     id: 'banana-peel',
     name: 'Banana Peel',
@@ -69,8 +67,6 @@ const compostItems: CompostItem[] = [
     description: 'Provide calcium for your compost',
     tips: 'Crush shells for faster breakdown'
   },
-
-  // Browns (Carbon-rich)
   {
     id: 'dry-leaves',
     name: 'Dry Leaves',
@@ -116,8 +112,6 @@ const compostItems: CompostItem[] = [
     description: 'Unbleached paper towels work well',
     tips: 'Ensure they\'re not contaminated with chemicals'
   },
-
-  // Not Compostable
   {
     id: 'meat',
     name: 'Meat Scraps',
@@ -164,8 +158,7 @@ const compostItems: CompostItem[] = [
     tips: 'Recycle separately from compost'
   }
 ];
-
-const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: CompostScavengerHuntProps) => {
+const CompostScavengerHunt = ({ onBack,userId ,userName = 'Player', onComplete }: CompostScavengerHuntProps) => {
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'completed'>('menu');
   const [currentItems, setCurrentItems] = useState<CompostItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<{[key: string]: 'greens' | 'browns' | 'not-compostable'}>({});
@@ -176,7 +169,6 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
   const [showResults, setShowResults] = useState(false);
   const [hintsUsed, setHintsUsed] = useState(0);
   const [maxHints] = useState(3);
-
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (gameState === 'playing' && timeRemaining > 0 && !gameCompleted) {
@@ -188,20 +180,16 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
     }
     return () => clearTimeout(timer);
   }, [gameState, timeRemaining, gameCompleted]);
-
   const startGame = () => {
     // Select 12 random items (4 greens, 4 browns, 4 not-compostable)
     const greens = compostItems.filter(item => item.category === 'greens');
     const browns = compostItems.filter(item => item.category === 'browns');
     const notCompostable = compostItems.filter(item => item.category === 'not-compostable');
-
     const selectedGreens = greens.sort(() => Math.random() - 0.5).slice(0, 4);
     const selectedBrowns = browns.sort(() => Math.random() - 0.5).slice(0, 4);
     const selectedNotCompostable = notCompostable.sort(() => Math.random() - 0.5).slice(0, 4);
-
     const allSelected = [...selectedGreens, ...selectedBrowns, ...selectedNotCompostable]
       .sort(() => Math.random() - 0.5);
-
     setCurrentItems(allSelected);
     setGameState('playing');
     setScore(0);
@@ -212,54 +200,68 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
     setShowResults(false);
     setHintsUsed(0);
   };
-
   const selectCategory = (itemId: string, category: 'greens' | 'browns' | 'not-compostable') => {
     setSelectedItems(prev => ({
       ...prev,
       [itemId]: category
     }));
   };
-
   const submitAnswers = () => {
     setShowResults(true);
     calculateScore();
   };
-
   const calculateScore = () => {
     let totalScore = 0;
-    let correctAnswers = 0;
-
     currentItems.forEach(item => {
       const selectedCategory = selectedItems[item.id];
-      if (selectedCategory === item.category) {
-        totalScore += item.points;
-        correctAnswers++;
-      } else if (selectedCategory) {
-        // Wrong answer penalty, but not as harsh as the negative points
-        totalScore -= 5;
-      }
+      if (selectedCategory === item.category) totalScore += item.points;
+      else if (selectedCategory) totalScore -= 5;
     });
-
-    // Bonus for speed
     const timeBonus = Math.max(0, Math.floor((300 - (300 - timeRemaining)) / 10));
     totalScore += timeBonus;
-
-    // Penalty for hints
     totalScore -= hintsUsed * 10;
-
     setScore(Math.max(0, totalScore));
     setTimeout(() => completeGame(), 2000);
   };
-
-  const completeGame = () => {
-    const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-    const maxScore = currentItems.reduce((sum, item) => sum + Math.abs(item.points), 0) + 50; // Including max time bonus
-    
-    setGameCompleted(true);
-    setGameState('completed');
-    onComplete?.(score, maxScore, timeElapsed);
-  };
-
+  const completeGame = async () => {
+  const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+  const maxScore = currentItems.reduce((sum, item) => sum + Math.abs(item.points), 0) + 50;  
+  setGameCompleted(true);
+  setGameState('completed');
+  if (userId) {
+    try {
+      const { error: insertError } = await supabase.from('eco_activity').insert([{
+        user_id: userId,
+        activity_type: 'Compost Scavenger Hunt',
+        points: score,
+        description: `Completed scavenger hunt with ${score} points in ${timeElapsed} seconds`
+      }]);
+      if (insertError) console.error('Supabase insert error:', insertError.message);
+      const { data: existingPoints, error: fetchError } = await supabase
+        .from('eco_points')
+        .select('points')
+        .eq('user_id', userId)
+        .single();
+      if (fetchError && (fetchError as any).code !== 'PGRST116') {
+        console.error(fetchError);
+      }
+      if (existingPoints) {
+        await supabase
+          .from('eco_points')
+          .update({ points: existingPoints.points + score })
+          .eq('user_id', userId);
+      } else {
+        await supabase
+          .from('eco_points')
+          .insert([{ user_id: userId, points: score }]);
+      }
+      console.log('✅ Points updated successfully');
+    } catch (err) {
+      console.error('Supabase exception:', err);
+    }
+  }
+  onComplete?.(score, maxScore, timeElapsed);
+};
   const resetGame = () => {
     setGameState('menu');
     setScore(0);
@@ -267,7 +269,6 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
     setCurrentItems([]);
     setShowResults(false);
   };
-
   const getHint = (item: CompostItem) => {
     if (hintsUsed < maxHints) {
       setHintsUsed(prev => prev + 1);
@@ -275,18 +276,15 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
     }
     return false;
   };
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-
   if (gameState === 'menu') {
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4">
-        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />
-        
+        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />     
         <div className="relative z-10 max-w-4xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
             <Button
@@ -298,7 +296,6 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
               Back
             </Button>
           </div>
-
           <Card className="bg-white/90 backdrop-blur-sm border-green-200 shadow-xl">
             <CardHeader className="text-center pb-8">
               <div className="flex justify-center mb-4">
@@ -311,7 +308,6 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
                 Find and sort compostable items! Learn to identify greens, browns, and items that don't belong in compost.
               </p>
             </CardHeader>
-
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="bg-gradient-to-br from-green-100 to-green-200 rounded-lg p-4 text-center">
@@ -330,7 +326,6 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
                   <p className="text-sm text-red-700">Items that don't belong in home compost</p>
                 </div>
               </div>
-
               <div className="bg-gradient-to-r from-emerald-100 to-teal-100 rounded-lg p-6">
                 <h4 className="text-emerald-800 mb-3">Game Rules:</h4>
                 <div className="grid md:grid-cols-2 gap-4 text-sm text-emerald-700">
@@ -340,7 +335,6 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
                   <div>• 3 hints available (with point penalty)</div>
                 </div>
               </div>
-
               <div className="text-center">
                 <Button
                   onClick={startGame}
@@ -356,12 +350,10 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
       </div>
     );
   }
-
   if (gameState === 'playing') {
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4">
-        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />
-        
+        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />        
         <div className="relative z-10 max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <Button
@@ -384,7 +376,6 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
               </Badge>
             </div>
           </div>
-
           <Card className="bg-white/95 backdrop-blur-sm border-green-200 shadow-xl mb-6">
             <CardHeader>
               <CardTitle className="text-green-800 text-center">Sort These Items Into Categories</CardTitle>
@@ -408,8 +399,7 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
               >
                 <CardContent className="p-4 text-center">
                   <div className="text-4xl mb-2">{item.image}</div>
-                  <h4 className="text-sm text-gray-800 mb-2">{item.name}</h4>
-                  
+                  <h4 className="text-sm text-gray-800 mb-2">{item.name}</h4>                 
                   {showResults && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.8 }}
@@ -423,7 +413,6 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
                       {selectedItems[item.id] === item.category ? '✓ Correct' : `✗ Should be: ${item.category}`}
                     </motion.div>
                   )}
-
                   {!showResults && (
                     <div className="space-y-2">
                       <div className="flex justify-center gap-1">
@@ -472,7 +461,6 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
               </Card>
             ))}
           </div>
-
           {!showResults && (
             <div className="text-center">
               <Button
@@ -488,16 +476,13 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
       </div>
     );
   }
-
   if (gameState === 'completed') {
     const correctAnswers = currentItems.filter(item => selectedItems[item.id] === item.category).length;
     const percentage = Math.round((correctAnswers / currentItems.length) * 100);
     const ecoPoints = Math.floor(score / 5);
-
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4">
-        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />
-        
+        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />       
         <div className="relative z-10 max-w-4xl mx-auto">
           <Card className="bg-white/95 backdrop-blur-sm border-green-200 shadow-xl">
             <CardHeader className="text-center">
@@ -514,7 +499,6 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
               <CardTitle className="text-3xl text-green-800 mb-2">Hunt Complete!</CardTitle>
               <p className="text-green-700">Great job learning about composting, {userName}!</p>
             </CardHeader>
-
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-4">
@@ -538,7 +522,6 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
                   </div>
                 </div>
               </div>
-
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-6">
                 <h4 className="text-green-800 mb-3">Composting Tip:</h4>
                 <p className="text-green-700">
@@ -547,7 +530,6 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
                   and keep it moist but not soggy!
                 </p>
               </div>
-
               <div className="flex justify-center gap-4">
                 <Button
                   onClick={resetGame}
@@ -570,8 +552,6 @@ const CompostScavengerHunt = ({ onBack, userName = 'Player', onComplete }: Compo
       </div>
     );
   }
-
   return null;
 };
-
 export default CompostScavengerHunt;

@@ -1,16 +1,22 @@
 import { motion } from 'motion/react';
 import { useState, useEffect } from 'react';
-import { Wind, Zap, Clock, Users, Trophy, ArrowLeft, RotateCcw, Award, Check, X } from 'lucide-react';
+import {
+  Wind,
+  Zap,
+  Clock,
+  Users,
+  Trophy,
+  ArrowLeft,
+  RotateCcw,
+  Award,
+  Check,
+  X,
+} from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
-
-interface WindEnergyTriviaProps {
-  onBack: () => void;
-  userName?: string;
-  onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
-}
+import { supabase } from '../../supabaseClient';
 
 interface TriviaQuestion {
   id: string;
@@ -30,97 +36,110 @@ interface Team {
   score: number;
   avatar: string;
 }
-
 const triviaQuestions: TriviaQuestion[] = [
   {
     id: '1',
     question: 'What force drives wind turbines to generate electricity?',
     options: ['Solar energy', 'Wind energy', 'Water energy', 'Nuclear energy'],
     correctAnswer: 1,
-    explanation: 'Wind turbines harness kinetic energy from moving air (wind) to rotate their blades and generate electricity.',
+    explanation:
+      'Wind turbines harness kinetic energy from moving air (wind) to rotate their blades and generate electricity.',
     difficulty: 'easy',
     points: 10,
-    category: 'Basics'
+    category: 'Basics',
   },
   {
     id: '2',
     question: 'What is the typical height of modern wind turbines?',
     options: ['50-80 meters', '80-120 meters', '120-200 meters', '200-300 meters'],
     correctAnswer: 2,
-    explanation: 'Modern wind turbines are typically 120-200 meters tall to capture stronger, more consistent winds at higher altitudes.',
+    explanation:
+      'Modern wind turbines are typically 120-200 meters tall to capture stronger, more consistent winds at higher altitudes.',
     difficulty: 'medium',
     points: 15,
-    category: 'Technology'
+    category: 'Technology',
   },
   {
     id: '3',
-    question: 'Which country is the world\'s largest producer of wind energy?',
+    question: "Which country is the world's largest producer of wind energy?",
     options: ['United States', 'Germany', 'China', 'Denmark'],
     correctAnswer: 2,
-    explanation: 'China leads the world in wind energy production, generating more than double the amount of any other country.',
+    explanation:
+      'China leads the world in wind energy production, generating more than double the amount of any other country.',
     difficulty: 'medium',
     points: 15,
-    category: 'Global Facts'
+    category: 'Global Facts',
   },
   {
     id: '4',
     question: 'What is the minimum wind speed needed to start generating electricity?',
     options: ['5-7 mph', '7-10 mph', '10-15 mph', '15-20 mph'],
     correctAnswer: 1,
-    explanation: 'Most wind turbines start generating electricity at wind speeds of 7-10 mph (cut-in speed).',
+    explanation:
+      'Most wind turbines start generating electricity at wind speeds of 7-10 mph (cut-in speed).',
     difficulty: 'easy',
     points: 10,
-    category: 'Technology'
+    category: 'Technology',
   },
   {
     id: '5',
     question: 'What percentage of global electricity was generated from wind in 2023?',
     options: ['2-3%', '4-6%', '7-9%', '10-12%'],
     correctAnswer: 2,
-    explanation: 'Wind energy provided approximately 7-9% of global electricity generation in 2023, and this percentage is growing rapidly.',
+    explanation:
+      'Wind energy provided approximately 7-9% of global electricity generation in 2023, and this percentage is growing rapidly.',
     difficulty: 'hard',
     points: 20,
-    category: 'Statistics'
+    category: 'Statistics',
   },
   {
     id: '6',
     question: 'What environmental benefit does wind energy provide?',
-    options: ['Reduces water usage', 'Zero carbon emissions during operation', 'Improves air quality', 'All of the above'],
+    options: [
+      'Reduces water usage',
+      'Zero carbon emissions during operation',
+      'Improves air quality',
+      'All of the above',
+    ],
     correctAnswer: 3,
-    explanation: 'Wind energy provides all these benefits: it uses minimal water, produces no emissions during operation, and improves air quality.',
+    explanation:
+      'Wind energy provides all these benefits: it uses minimal water, produces no emissions during operation, and improves air quality.',
     difficulty: 'easy',
     points: 10,
-    category: 'Environment'
+    category: 'Environment',
   },
   {
     id: '7',
     question: 'What is the term for wind farms located in the ocean?',
     options: ['Marine wind', 'Offshore wind', 'Ocean wind', 'Coastal wind'],
     correctAnswer: 1,
-    explanation: 'Offshore wind farms are built in bodies of water, typically on continental shelves, where winds are stronger and more consistent.',
+    explanation:
+      'Offshore wind farms are built in bodies of water, typically on continental shelves, where winds are stronger and more consistent.',
     difficulty: 'easy',
     points: 10,
-    category: 'Technology'
+    category: 'Technology',
   },
   {
     id: '8',
     question: 'How long do wind turbine blades typically last?',
     options: ['10-15 years', '20-25 years', '30-35 years', '40-50 years'],
     correctAnswer: 1,
-    explanation: 'Wind turbine blades typically last 20-25 years before needing replacement due to wear from constant rotation and weather exposure.',
+    explanation:
+      'Wind turbine blades typically last 20-25 years before needing replacement due to wear from constant rotation and weather exposure.',
     difficulty: 'medium',
     points: 15,
-    category: 'Technology'
+    category: 'Technology',
   },
   {
     id: '9',
     question: 'What happens when wind speeds are too high for safe operation?',
     options: ['Turbines spin faster', 'Turbines automatically shut down', 'Turbines generate more power', 'Nothing changes'],
     correctAnswer: 1,
-    explanation: 'Turbines have a cut-out speed (usually 55-65 mph) where they automatically shut down to prevent damage from high winds.',
+    explanation:
+      'Turbines have a cut-out speed (usually 55-65 mph) where they automatically shut down to prevent damage from high winds.',
     difficulty: 'medium',
     points: 15,
-    category: 'Safety'
+    category: 'Safety',
   },
   {
     id: '10',
@@ -130,48 +149,57 @@ const triviaQuestions: TriviaQuestion[] = [
     explanation: 'The generator converts the mechanical rotational energy from the turbine blades into electrical energy.',
     difficulty: 'easy',
     points: 10,
-    category: 'Technology'
-  }
+    category: 'Technology',
+  },
 ];
 
 const teams: Team[] = [
   { id: 'wind-warriors', name: 'Wind Warriors', color: 'blue', score: 0, avatar: '💨' },
   { id: 'energy-eagles', name: 'Energy Eagles', color: 'emerald', score: 0, avatar: '🦅' },
   { id: 'power-pioneers', name: 'Power Pioneers', color: 'purple', score: 0, avatar: '⚡' },
-  { id: 'turbine-titans', name: 'Turbine Titans', color: 'orange', score: 0, avatar: '🌪️' }
+  { id: 'turbine-titans', name: 'Turbine Titans', color: 'orange', score: 0, avatar: '🌪️' },
 ];
 
-const WindEnergyTrivia = ({ onBack, userName = 'Player', onComplete }: WindEnergyTriviaProps) => {
+interface WindEnergyTriviaProps {
+  onBack: () => void;
+  userName: string;
+  onPointsUpdated: () => Promise<void>;
+  addPointsForUser: (points: number) => Promise<void>;
+}
+
+const WindEnergyTrivia = ({
+  onBack,
+  userName,
+  onPointsUpdated,
+  addPointsForUser,
+}: WindEnergyTriviaProps) => {
   const [gameState, setGameState] = useState<'menu' | 'team-select' | 'playing' | 'completed'>('menu');
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
-  const [currentQuestion, setCurrentQuestion] = useState(0);
+  const [currentQuestion, setCurrentQuestion] = useState<number>(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-  const [showAnswer, setShowAnswer] = useState(false);
-  const [score, setScore] = useState(0);
-  const [correctAnswers, setCorrectAnswers] = useState(0);
+  const [showAnswer, setShowAnswer] = useState<boolean>(false);
+  const [score, setScore] = useState<number>(0);
+  const [correctAnswers, setCorrectAnswers] = useState<number>(0);
   const [startTime, setStartTime] = useState<number>(0);
   const [questionStartTime, setQuestionStartTime] = useState<number>(0);
-  const [timeRemaining, setTimeRemaining] = useState(30);
+  const [timeRemaining, setTimeRemaining] = useState<number>(30);
   const [gameQuestions, setGameQuestions] = useState<TriviaQuestion[]>([]);
-  const [teamScores, setTeamScores] = useState<{[key: string]: number}>({});
-  const [streak, setStreak] = useState(0);
-  const [maxStreak, setMaxStreak] = useState(0);
+  const [teamScores, setTeamScores] = useState<{ [key: string]: number }>({});
+  const [streak, setStreak] = useState<number>(0);
+  const [maxStreak, setMaxStreak] = useState<number>(0);
 
+  // Timer
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (gameState === 'playing' && timeRemaining > 0 && !showAnswer) {
-      timer = setTimeout(() => {
-        setTimeRemaining(prev => prev - 1);
-      }, 1000);
+      timer = setTimeout(() => setTimeRemaining(prev => prev - 1), 1000);
     } else if (timeRemaining === 0 && !showAnswer) {
       handleTimeOut();
     }
     return () => clearTimeout(timer);
   }, [gameState, timeRemaining, showAnswer]);
 
-  const startGame = () => {
-    setGameState('team-select');
-  };
+  const startGame = () => setGameState('team-select');
 
   const selectTeam = (team: Team) => {
     setSelectedTeam(team);
@@ -188,83 +216,58 @@ const WindEnergyTrivia = ({ onBack, userName = 'Player', onComplete }: WindEnerg
     setTimeRemaining(30);
     setStreak(0);
     setMaxStreak(0);
-    
-    // Initialize team scores
-    const initialScores: {[key: string]: number} = {};
-    teams.forEach(t => {
-      initialScores[t.id] = Math.floor(Math.random() * 50) + 20; // Random scores for other teams
-    });
-    initialScores[team.id] = 0; // Player starts at 0
+
+    const initialScores: { [key: string]: number } = {};
+    teams.forEach(t => (initialScores[t.id] = Math.floor(Math.random() * 50) + 20));
+    initialScores[team.id] = 0;
     setTeamScores(initialScores);
   };
 
   const handleAnswerSelect = (answerIndex: number) => {
     if (showAnswer) return;
-    
+
     setSelectedAnswer(answerIndex);
     setShowAnswer(true);
-    
+
     const question = gameQuestions[currentQuestion];
     const isCorrect = answerIndex === question.correctAnswer;
     const responseTime = Date.now() - questionStartTime;
-    
+
     if (isCorrect) {
-      // Calculate points based on difficulty and speed
       let points = question.points;
-      const speedBonus = Math.max(0, Math.floor((30 - (responseTime / 1000)) / 5) * 2);
+      const speedBonus = Math.max(0, Math.floor((30 - responseTime / 1000) / 5) * 2);
       const streakBonus = streak >= 3 ? Math.floor(points * 0.5) : 0;
-      
       points += speedBonus + streakBonus;
-      
       setScore(prev => prev + points);
       setCorrectAnswers(prev => prev + 1);
       setStreak(prev => {
         const newStreak = prev + 1;
-        setMaxStreak(current => Math.max(current, newStreak));
+        setMaxStreak(curr => Math.max(curr, newStreak));
         return newStreak;
       });
-      
-      // Update team score
+
       if (selectedTeam) {
-        setTeamScores(prev => ({
-          ...prev,
-          [selectedTeam.id]: prev[selectedTeam.id] + points
-        }));
+        setTeamScores(prev => ({ ...prev, [selectedTeam.id]: prev[selectedTeam.id] + points }));
       }
     } else {
       setStreak(0);
     }
 
-    // Simulate other teams answering
-    const otherTeams = teams.filter(t => t.id !== selectedTeam?.id);
-    otherTeams.forEach(team => {
+    // Other teams random points
+    teams.filter(t => t.id !== selectedTeam?.id).forEach(team => {
       const randomPoints = Math.floor(Math.random() * 15) + 5;
-      setTeamScores(prev => ({
-        ...prev,
-        [team.id]: prev[team.id] + randomPoints
-      }));
+      setTeamScores(prev => ({ ...prev, [team.id]: prev[team.id] + randomPoints }));
     });
 
     setTimeout(() => {
-      if (currentQuestion < gameQuestions.length - 1) {
-        nextQuestion();
-      } else {
-        completeGame();
-      }
+      currentQuestion < gameQuestions.length - 1 ? nextQuestion() : completeGame();
     }, 3000);
   };
 
   const handleTimeOut = () => {
     setShowAnswer(true);
     setStreak(0);
-    
-    setTimeout(() => {
-      if (currentQuestion < gameQuestions.length - 1) {
-        nextQuestion();
-      } else {
-        completeGame();
-      }
-    }, 2000);
+    setTimeout(() => (currentQuestion < gameQuestions.length - 1 ? nextQuestion() : completeGame()), 2000);
   };
 
   const nextQuestion = () => {
@@ -275,12 +278,36 @@ const WindEnergyTrivia = ({ onBack, userName = 'Player', onComplete }: WindEnerg
     setQuestionStartTime(Date.now());
   };
 
-  const completeGame = () => {
+  const logActivity = async (ecoPoints: number) => {
+    try {
+      await supabase.from('eco_activity').insert([
+        {
+          user_id: userName,
+          activity_type: 'wind_trivia',
+          description: `Completed Wind Energy Trivia with ${ecoPoints} points`,
+          points: ecoPoints,
+          created_at: new Date(),
+        },
+      ]);
+    } catch (err) {
+      console.error('Error logging activity:', err);
+    }
+  };
+
+  const completeGame = async () => {
     const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-    const maxScore = gameQuestions.reduce((sum, q) => sum + q.points, 0) + 80; // Including max speed bonus
-    
+    const ecoPoints = Math.floor(score / 2);
+
+    // Add points via prop
+    await addPointsForUser(ecoPoints);
+
+    // Log activity
+    await logActivity(ecoPoints);
+
+    // Refresh points in parent
+    await onPointsUpdated();
+
     setGameState('completed');
-    onComplete?.(score, maxScore, timeElapsed);
   };
 
   const resetGame = () => {
@@ -299,24 +326,26 @@ const WindEnergyTrivia = ({ onBack, userName = 'Player', onComplete }: WindEnerg
 
   const getCurrentTeamRanking = () => {
     if (!selectedTeam) return 1;
-    
     const sortedTeams = Object.entries(teamScores)
-      .map(([id, score]) => ({ id, score }))
-      .sort((a, b) => b.score - a.score);
-    
+      .map(([id, s]) => ({ id, s }))
+      .sort((a, b) => b.s - a.s);
     return sortedTeams.findIndex(team => team.id === selectedTeam.id) + 1;
   };
 
+  const handleBack = async () => {
+    await onPointsUpdated();
+    onBack();
+  };
   if (gameState === 'menu') {
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-cyan-50 via-blue-50 to-indigo-50 p-4">
         <div className="absolute inset-0 bg-gradient-to-t from-cyan-100/20 to-transparent" />
-        
+
         <div className="relative z-10 max-w-4xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
             <Button
               variant="ghost"
-              onClick={onBack}
+              onClick={handleBack}
               className="text-blue-700 hover:text-blue-800 hover:bg-blue-50"
             >
               <ArrowLeft size={20} className="mr-2" />
@@ -386,7 +415,7 @@ const WindEnergyTrivia = ({ onBack, userName = 'Player', onComplete }: WindEnerg
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-cyan-50 via-blue-50 to-indigo-50 p-4">
         <div className="absolute inset-0 bg-gradient-to-t from-cyan-100/20 to-transparent" />
-        
+
         <div className="relative z-10 max-w-6xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
             <Button
@@ -408,7 +437,7 @@ const WindEnergyTrivia = ({ onBack, userName = 'Player', onComplete }: WindEnerg
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {teams.map((team) => (
-              <Card 
+              <Card
                 key={team.id}
                 className={`bg-white/90 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer border-2 ${
                   team.color === 'blue' ? 'hover:border-blue-400' :
@@ -460,12 +489,12 @@ const WindEnergyTrivia = ({ onBack, userName = 'Player', onComplete }: WindEnerg
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-cyan-50 via-blue-50 to-indigo-50 p-4">
         <div className="absolute inset-0 bg-gradient-to-t from-cyan-100/20 to-transparent" />
-        
+
         <div className="relative z-10 max-w-6xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <Button
               variant="ghost"
-              onClick={onBack}
+              onClick={handleBack}
               className="text-blue-700 hover:text-blue-800 hover:bg-blue-50"
             >
               <ArrowLeft size={20} className="mr-2" />
@@ -587,11 +616,11 @@ const WindEnergyTrivia = ({ onBack, userName = 'Player', onComplete }: WindEnerg
             <CardContent>
               <div className="grid md:grid-cols-4 gap-4">
                 {teams.map((team, index) => (
-                  <div 
+                  <div
                     key={team.id}
                     className={`p-3 rounded-lg text-center ${
-                      team.id === selectedTeam.id 
-                        ? 'bg-blue-100 border-2 border-blue-400' 
+                      team.id === selectedTeam.id
+                        ? 'bg-blue-100 border-2 border-blue-400'
                         : 'bg-gray-50 border border-gray-200'
                     }`}
                   >
@@ -620,16 +649,11 @@ const WindEnergyTrivia = ({ onBack, userName = 'Player', onComplete }: WindEnerg
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-cyan-50 via-blue-50 to-indigo-50 p-4">
         <div className="absolute inset-0 bg-gradient-to-t from-cyan-100/20 to-transparent" />
-        
+
         <div className="relative z-10 max-w-4xl mx-auto">
           <Card className="bg-white/95 backdrop-blur-sm border-blue-200 shadow-xl">
             <CardHeader className="text-center">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2 }}
-                className="flex justify-center mb-4"
-              >
+              <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2 }} className="flex justify-center mb-4">
                 <div className={`p-4 rounded-full ${
                   finalRanking === 1 ? 'bg-gradient-to-br from-yellow-400 to-orange-500' :
                   finalRanking === 2 ? 'bg-gradient-to-br from-gray-300 to-gray-500' :
@@ -677,8 +701,8 @@ const WindEnergyTrivia = ({ onBack, userName = 'Player', onComplete }: WindEnerg
               <div className="bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg p-6">
                 <h4 className="text-blue-800 mb-3">Wind Energy Fact:</h4>
                 <p className="text-blue-700">
-                  Wind energy is one of the fastest-growing renewable energy sources worldwide! Modern wind turbines 
-                  can power hundreds of homes each, and wind farms can generate electricity for entire cities. 
+                  Wind energy is one of the fastest-growing renewable energy sources worldwide! Modern wind turbines
+                  can power hundreds of homes each, and wind farms can generate electricity for entire cities.
                   The wind industry also creates jobs in manufacturing, installation, and maintenance.
                 </p>
               </div>
@@ -692,7 +716,7 @@ const WindEnergyTrivia = ({ onBack, userName = 'Player', onComplete }: WindEnerg
                   Play Again
                 </Button>
                 <Button
-                  onClick={onBack}
+                  onClick={handleBack}
                   variant="outline"
                   className="border-blue-300 text-blue-700 hover:bg-blue-50 px-8"
                 >
@@ -708,5 +732,4 @@ const WindEnergyTrivia = ({ onBack, userName = 'Player', onComplete }: WindEnerg
 
   return null;
 };
-
 export default WindEnergyTrivia;

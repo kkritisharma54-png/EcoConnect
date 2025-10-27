@@ -383,25 +383,25 @@ const fetchPoints = useCallback(async () => {
         onExit={handleGameBack}
       />;
     case 'solar-puzzles':
-      return <SolarPuzzles onComplete={addPointsForUser} {...commonProps} />;
+      return <SolarPuzzles {...commonProps} />;
     case 'solar-word-game':
-      return <SolarWordGame onComplete={addPointsForUser} {...commonProps} />;
+      return <SolarWordGame {...commonProps} />;
     case 'compost-jar':
       return <CompostJarProject onComplete={addPointsForUser} {...commonProps} />;
     case 'compost-hunt':
-      return <CompostScavengerHunt onComplete={addPointsForUser} {...commonProps} />;
+      return <CompostScavengerHunt {...commonProps} />;
     case 'species-memory':
       return <EndangeredSpeciesMemory onComplete={addPointsForUser} {...commonProps} />;
     case 'habitat-explorer':
-      return <HabitatExplorer onComplete={addPointsForUser} {...commonProps} />;
+      return <HabitatExplorer {...commonProps} />;
     case 'wind-trivia':
-      return <WindEnergyTrivia onComplete={addPointsForUser} {...commonProps} />;
+      return <WindEnergyTrivia {...commonProps} />;
     case 'wind-turbine-build':
-      return <WindTurbineBuild onComplete={addPointsForUser} {...commonProps} />;
+      return <WindTurbineBuild  {...commonProps} addPointsForUser={commonProps.addPointsForUser} />;
     case 'seed-bomb-toss':
-      return <SeedBombToss onComplete={addPointsForUser} {...commonProps} />;
+      return <SeedBombToss {...commonProps} />;
     case 'trash-tag-challenge':
-      return <TrashTagChallenge onComplete={addPointsForUser} {...commonProps} />;
+      return <TrashTagChallenge {...commonProps} />;
     default:
       return (
         <div className="relative min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 p-4">
