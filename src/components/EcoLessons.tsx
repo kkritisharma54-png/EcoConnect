@@ -66,26 +66,26 @@ const EcoLessons = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedActivity, setSelectedActivity] = useState<any|null>(null);
   const [ecoPoints, setEcoPoints] = useState(0);
-
-  // Fetch eco points from Supabase
-  const fetchPoints = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data, error } = await supabase
-      .from('eco_points')
-      .select('points')
-      .eq('user_id', user.id)
-      .single();
-    setEcoPoints((data && !error) ? data.points : 0);
-  }, []);
-
+  // Fetch eco points from eco_activity table
+const fetchPoints = useCallback(async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+  const { data, error } = await supabase
+    .from('eco_activity')
+    .select('points')
+    .eq('user_id', user.id);
+  if (!error && data) {
+    const totalPoints = data.reduce((sum, row) => sum + (row.points || 0), 0);
+    setEcoPoints(totalPoints);
+  } else {
+    setEcoPoints(0);
+  }
+}, []);
   useEffect(() => { fetchPoints(); }, [fetchPoints]);
-
   useEffect(() => {
     const timer = setTimeout(() => setShowFloatingElements(true), 300);
     return () => clearTimeout(timer);
   }, []);
-
   const categories = [
     { id: 'water', name: 'Water', icon: Droplets, color: 'text-blue-600', bgColor: 'bg-blue-100' },
     { id: 'energy', name: 'Energy', icon: Zap, color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
@@ -351,62 +351,82 @@ const EcoLessons = ({
 
   // === Game Launch Handler with Points Refresh Callback Pattern ===
   if (selectedActivity) {
-    const handleGameBack = () => {
-      setSelectedActivity(null);
-      fetchPoints(); // Always refresh after a game closes
-    };
+  const handleGameBack = () => {
+    setSelectedActivity(null);
+    fetchPoints(); // Always refresh after a game closes
+  };
 
-    // All games get onPointsUpdated prop so they can call fetchPoints() after points are added
-    const commonProps = { onBack: handleGameBack, userName, onPointsUpdated: fetchPoints };
+  // Helper to add points for the logged-in user
+  const addPointsForUser = async (points: number) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
-    switch (selectedActivity.id) {
-      case 'water-sim':          return <WaterUsageSimulator onComplete={function (score: number): void {
-        throw new Error('Function not implemented.');
-      } } {...commonProps} />;
-      case 'leak-puzzle':        return <LeakDetectionPuzzle onComplete={function (score: number): void {
-        throw new Error('Function not implemented.');
-      } } {...commonProps} />;
-      case 'water-quiz':         return <WaterConservationQuiz {...commonProps} />;
-      case 'solar-puzzles':      return <SolarPuzzles {...commonProps} />;
-      case 'solar-word-game':    return <SolarWordGame {...commonProps} />;
-      case 'compost-jar':        return <CompostJarProject onComplete={function (score: number): void {
-        throw new Error('Function not implemented.');
-      } } {...commonProps} />;
-      case 'compost-hunt':       return <CompostScavengerHunt {...commonProps} />;
-      case 'species-memory':     return <EndangeredSpeciesMemory onComplete={function (score: number): void {
-        throw new Error('Function not implemented.');
-      } } {...commonProps} />;
-      case 'habitat-explorer':   return <HabitatExplorer {...commonProps} />;
-      case 'wind-trivia':        return <WindEnergyTrivia {...commonProps} />;
-      case 'wind-turbine-build': return <WindTurbineBuild {...commonProps} />;
-      case 'seed-bomb-toss':     return <SeedBombToss {...commonProps} />;
-      case 'trash-tag-challenge':return <TrashTagChallenge {...commonProps} />;
-      default:
-        return (
-          <div className="relative min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 p-4">
-            <div className="relative z-10 max-w-4xl mx-auto">
-              <div className="flex items-center gap-4 mb-8">
-                <Button
-                  variant="ghost"
-                  onClick={handleGameBack}
-                  className="text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50"
-                >
-                  <ArrowLeft size={20} className="mr-2" />
-                  Back
-                </Button>
-              </div>
-              <Card className="bg-white/90 backdrop-blur-sm border-emerald-200 shadow-xl">
-                <CardContent className="p-8 text-center">
-                  <h2 className="text-2xl text-emerald-800 mb-4">{selectedActivity.title}</h2>
-                  <p className="text-emerald-700 mb-6">{selectedActivity.description}</p>
-                  <p className="text-orange-600">This game is coming soon! 🚀</p>
-                </CardContent>
-              </Card>
+    const { error } = await supabase
+      .from('eco_activity')
+      .insert([{ user_id: user.id, points,active_date: new Date().toISOString() }]);
+
+    if (error) console.error('Error adding points:', error.message);
+    else fetchPoints();
+  };
+
+  // All games get these common props
+  const commonProps = { onBack: handleGameBack, userName, onPointsUpdated: fetchPoints, addPointsForUser };
+
+  switch (selectedActivity.id) {
+    case 'water-sim':
+      return <WaterUsageSimulator onComplete={addPointsForUser} {...commonProps} />;
+    case 'leak-puzzle':
+      return <LeakDetectionPuzzle onComplete={addPointsForUser} {...commonProps} />;
+    case 'water-quiz':
+      return <WaterConservationQuiz
+        onComplete={addPointsForUser}
+        onExit={handleGameBack}
+      />;
+    case 'solar-puzzles':
+      return <SolarPuzzles {...commonProps} />;
+    case 'solar-word-game':
+      return <SolarWordGame {...commonProps} />;
+    case 'compost-jar':
+      return <CompostJarProject onComplete={addPointsForUser} {...commonProps} />;
+    case 'compost-hunt':
+      return <CompostScavengerHunt {...commonProps} />;
+    case 'species-memory':
+      return <EndangeredSpeciesMemory onComplete={addPointsForUser} {...commonProps} />;
+    case 'habitat-explorer':
+      return <HabitatExplorer {...commonProps} />;
+    case 'wind-trivia':
+      return <WindEnergyTrivia {...commonProps} />;
+    case 'wind-turbine-build':
+      return <WindTurbineBuild {...commonProps} />;
+    case 'seed-bomb-toss':
+      return <SeedBombToss {...commonProps} />;
+    case 'trash-tag-challenge':
+      return <TrashTagChallenge {...commonProps} />;
+    default:
+      return (
+        <div className="relative min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 p-4">
+          <div className="relative z-10 max-w-4xl mx-auto">
+            <div className="flex items-center gap-4 mb-8">
+              <Button
+                variant="ghost"
+                onClick={handleGameBack}
+                className="text-emerald-700 hover:text-emerald-800 hover:bg-emerald-50"
+              >
+                <ArrowLeft size={20} className="mr-2" /> Back
+              </Button>
             </div>
+            <Card className="bg-white/90 backdrop-blur-sm border-emerald-200 shadow-xl">
+              <CardContent className="p-8 text-center">
+                <h2 className="text-2xl text-emerald-800 mb-4">{selectedActivity.title}</h2>
+                <p className="text-emerald-700 mb-6">{selectedActivity.description}</p>
+                <p className="text-orange-600">This game is coming soon! 🚀</p>
+              </CardContent>
+            </Card>
           </div>
-        );
-    }
+        </div>
+      );
   }
+}
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4 transition-colors duration-300">
@@ -668,35 +688,31 @@ const EcoLessons = ({
                       </div>
                       {/* Activities Section */}
                       {lesson.activities && lesson.activities.length > 0 && (
-                        <div className="space-y-2">
-                          <div className="text-xs text-slate-500 dark:text-gray-500 uppercase tracking-wider">Activities</div>
-                          <div className="space-y-2">
-                            {lesson.activities.slice(0, 2).map((activity: { title: any; points: any; }, activityIndex: any) => (
-                              <Button
-                                key={activityIndex}
-                                variant="outline"
-                                size="sm"
-                                className="w-full justify-start text-xs border-emerald-200 dark:border-gray-600 hover:bg-emerald-50 dark:hover:bg-gray-800"
-                                onClick={(e: { stopPropagation: () => void; }) => {
-                                  e.stopPropagation();
-                                  handleActivityClick(activity, lesson.title);
-                                }}
-                              >
-                                <Gamepad2 size={12} className="mr-2" />
-                                {activity.title}
-                                <Badge variant="secondary" className="ml-auto text-xs">
-                                  +{activity.points} pts
-                                </Badge>
-                              </Button>
-                            ))}
-                            {lesson.activities.length > 2 && (
-                              <p className="text-xs text-slate-500 dark:text-gray-500">
-                                +{lesson.activities.length - 2} more activities
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      )}
+  <div className="space-y-2">
+    <div className="text-xs text-slate-500 dark:text-gray-500 uppercase tracking-wider">Activities</div>
+    <div className="space-y-2">
+      {lesson.activities.map((activity, activityIndex) => (
+        <Button
+          key={activityIndex}
+          variant="outline"
+          size="sm"
+          className="w-full justify-start text-xs border-emerald-200 dark:border-gray-600 hover:bg-emerald-50 dark:hover:bg-gray-800"
+          onClick={(e: { stopPropagation: () => void; }) => {
+            e.stopPropagation();
+            handleActivityClick(activity, lesson.title);
+          }}
+        >
+          <Gamepad2 size={12} className="mr-2" />
+          {activity.title}
+          <Badge variant="secondary" className="ml-auto text-xs">
+            +{activity.points} pts
+          </Badge>
+        </Button>
+      ))}
+    </div>
+  </div>
+)}
+
                     </div>
                     {/* Action Button */}
                     <div className="mt-4">
@@ -735,5 +751,4 @@ const EcoLessons = ({
     </div>
   );
 };
-
 export default EcoLessons;

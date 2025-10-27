@@ -46,31 +46,30 @@ const EcoDashboard = ({
   const [showFloatingElements, setShowFloatingElements] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [refreshCalendar, setRefreshCalendar] = useState(false);
-
   // 🟢 NEW: ecoPoints state and Supabase fetching
-  const [ecoPoints, setEcoPoints] = useState(0);
-  const maxEcoPoints = 1500;
+const [ecoPoints, setEcoPoints] = useState(0);
+const maxEcoPoints = 1500;
 
-  useEffect(() => {
-    const fetchPoints = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data, error } = await supabase
-        .from('eco_points')
-        .select('points')
-        .eq('user_id', user.id)
-        .single();
-      if (data && !error) {
-        setEcoPoints(data.points);
-      } else {
-        setEcoPoints(0);
-      }
-    };
-    fetchPoints();
-  }, []);
+useEffect(() => {
+  const fetchPoints = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
 
+    const { data, error } = await supabase
+      .from('eco_activity')
+      .select('points')
+      .eq('user_id', user.id);
+
+    if (!error && data) {
+      const totalPoints = data.reduce((sum, row) => sum + (row.points || 0), 0);
+      setEcoPoints(totalPoints);
+    } else {
+      setEcoPoints(0);
+    }
+  };
+  fetchPoints();
+}, []);
   const progressPercentage = (ecoPoints / maxEcoPoints) * 100;
-
   // Floating animation timer
   useEffect(() => {
     const timer = setTimeout(() => setShowFloatingElements(true), 300);
