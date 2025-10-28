@@ -5,13 +5,11 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
-
 interface TrashTagChallengeProps {
   onBack: () => void;
   userName?: string;
   onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
 }
-
 interface TrashItem {
   id: string;
   type: 'plastic' | 'paper' | 'metal' | 'glass' | 'organic' | 'electronic' | 'hazardous';
@@ -23,7 +21,6 @@ interface TrashItem {
   size: 'small' | 'medium' | 'large';
   difficulty: number; // 1-3, how hard to spot/collect
 }
-
 interface Area {
   id: string;
   name: string;
@@ -35,7 +32,6 @@ interface Area {
   icon: string;
   environmentalImpact: string;
 }
-
 interface Team {
   id: string;
   name: string;
@@ -44,39 +40,24 @@ interface Team {
   itemsCollected: number;
   avatar: string;
 }
-
 const trashItems: TrashItem[] = [
-  // Plastic items
   { id: 'bottle', type: 'plastic', name: 'Plastic Bottle', points: 10, recycleCategory: 'recyclable', decompositionTime: '450 years', icon: '🍾', size: 'medium', difficulty: 1 },
   { id: 'bag', type: 'plastic', name: 'Plastic Bag', points: 8, recycleCategory: 'recyclable', decompositionTime: '20 years', icon: '🛍️', size: 'small', difficulty: 2 },
-  { id: 'straw', type: 'plastic', name: 'Plastic Straw', points: 5, recycleCategory: 'landfill', decompositionTime: '200 years', icon: '🥤', size: 'small', difficulty: 3 },
-  
-  // Paper items
+  { id: 'straw', type: 'plastic', name: 'Plastic Straw', points: 5, recycleCategory: 'landfill', decompositionTime: '200 years', icon: '🥤', size: 'small', difficulty: 3 }, 
   { id: 'newspaper', type: 'paper', name: 'Newspaper', points: 6, recycleCategory: 'recyclable', decompositionTime: '6 weeks', icon: '📰', size: 'medium', difficulty: 1 },
   { id: 'cardboard', type: 'paper', name: 'Cardboard Box', points: 12, recycleCategory: 'recyclable', decompositionTime: '2 months', icon: '📦', size: 'large', difficulty: 1 },
-  { id: 'receipt', type: 'paper', name: 'Receipt', points: 3, recycleCategory: 'landfill', decompositionTime: '5 years', icon: '🧾', size: 'small', difficulty: 3 },
-  
-  // Metal items
+  { id: 'receipt', type: 'paper', name: 'Receipt', points: 3, recycleCategory: 'landfill', decompositionTime: '5 years', icon: '🧾', size: 'small', difficulty: 3 },  
   { id: 'can', type: 'metal', name: 'Aluminum Can', points: 15, recycleCategory: 'recyclable', decompositionTime: '80-100 years', icon: '🥤', size: 'small', difficulty: 1 },
-  { id: 'bottle-cap', type: 'metal', name: 'Bottle Cap', points: 8, recycleCategory: 'recyclable', decompositionTime: '50 years', icon: '🍺', size: 'small', difficulty: 2 },
-  
-  // Glass items
+  { id: 'bottle-cap', type: 'metal', name: 'Bottle Cap', points: 8, recycleCategory: 'recyclable', decompositionTime: '50 years', icon: '🍺', size: 'small', difficulty: 2 }, 
   { id: 'glass-bottle', type: 'glass', name: 'Glass Bottle', points: 20, recycleCategory: 'recyclable', decompositionTime: '1 million years', icon: '🍼', size: 'medium', difficulty: 1 },
   { id: 'jar', type: 'glass', name: 'Glass Jar', points: 18, recycleCategory: 'recyclable', decompositionTime: '1 million years', icon: '🫙', size: 'medium', difficulty: 1 },
-  
-  // Organic items
   { id: 'apple-core', type: 'organic', name: 'Apple Core', points: 5, recycleCategory: 'compostable', decompositionTime: '8 weeks', icon: '🍎', size: 'small', difficulty: 1 },
   { id: 'banana-peel', type: 'organic', name: 'Banana Peel', points: 5, recycleCategory: 'compostable', decompositionTime: '3-5 weeks', icon: '🍌', size: 'small', difficulty: 1 },
-  
-  // Electronic items
   { id: 'battery', type: 'electronic', name: 'Battery', points: 25, recycleCategory: 'hazardous', decompositionTime: '100+ years', icon: '🔋', size: 'small', difficulty: 2 },
   { id: 'phone', type: 'electronic', name: 'Old Phone', points: 50, recycleCategory: 'hazardous', decompositionTime: '1000+ years', icon: '📱', size: 'small', difficulty: 3 },
-  
-  // Hazardous items
   { id: 'paint-can', type: 'hazardous', name: 'Paint Can', points: 40, recycleCategory: 'hazardous', decompositionTime: '100+ years', icon: '🎨', size: 'medium', difficulty: 2 },
   { id: 'motor-oil', type: 'hazardous', name: 'Motor Oil Container', points: 45, recycleCategory: 'hazardous', decompositionTime: '200+ years', icon: '🛢️', size: 'medium', difficulty: 2 }
 ];
-
 const areas: Area[] = [
   {
     id: 'park',
@@ -112,14 +93,12 @@ const areas: Area[] = [
     environmentalImpact: 'Improves community health and city appearance'
   }
 ];
-
 const teams: Team[] = [
   { id: 'eco-warriors', name: 'Eco Warriors', color: 'green', score: 0, itemsCollected: 0, avatar: '🌱' },
   { id: 'clean-crusaders', name: 'Clean Crusaders', color: 'blue', score: 0, itemsCollected: 0, avatar: '🧹' },
   { id: 'trash-terminators', name: 'Trash Terminators', color: 'red', score: 0, itemsCollected: 0, avatar: '🗑️' },
   { id: 'green-guardians', name: 'Green Guardians', color: 'emerald', score: 0, itemsCollected: 0, avatar: '🛡️' }
 ];
-
 const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTagChallengeProps) => {
   const [gameState, setGameState] = useState<'menu' | 'area-select' | 'team-select' | 'playing' | 'sorting' | 'completed'>('menu');
   const [selectedArea, setSelectedArea] = useState<Area | null>(null);
@@ -143,7 +122,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
     bonusPoints: 0,
     timeBonus: 0
   });
-
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (gameState === 'playing' && timeRemaining > 0) {
@@ -155,48 +133,37 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
     }
     return () => clearTimeout(timer);
   }, [gameState, timeRemaining]);
-
   const startGame = () => {
     setGameState('area-select');
   };
-
   const selectArea = (area: Area) => {
     setSelectedArea(area);
     setGameState('team-select');
   };
-
   const selectTeam = (team: Team) => {
     setSelectedTeam(team);
     if (selectedArea) {
       startCleanup();
     }
   };
-
   const startCleanup = () => {
     if (!selectedArea || !selectedTeam) return;
-
     setGameState('playing');
     setStartTime(Date.now());
     setTimeRemaining(selectedArea.timeLimit);
     setScore(0);
     setCollectedTrash([]);
-    
-    // Generate random trash items for this area
     const areaTrash = generateTrashForArea(selectedArea);
     setCurrentTrashItems(areaTrash);
-    
-    // Initialize team scores
     const initialScores: {[key: string]: number} = {};
     teams.forEach(t => {
       if (t.id === selectedTeam.id) {
         initialScores[t.id] = 0;
       } else {
-        // Simulate other teams' progress
         initialScores[t.id] = Math.floor(Math.random() * 100) + 50;
       }
     });
     setTeamScores(initialScores);
-
     setGameStats({
       totalItems: 0,
       correctSorts: 0,
@@ -204,62 +171,41 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
       timeBonus: 0
     });
   };
-
   const generateTrashForArea = (area: Area): TrashItem[] => {
     const areaTrash: TrashItem[] = [];
-    
-    // Different areas have different trash distributions
     let trashPool = [...trashItems];
-    
     if (area.id === 'beach') {
-      // More plastic and bottles at beach
       trashPool = trashPool.filter(item => 
         item.type === 'plastic' || item.type === 'glass' || item.type === 'metal'
       );
     } else if (area.id === 'park') {
-      // More organic waste and general litter in park
       trashPool = trashPool.filter(item => 
         item.type === 'organic' || item.type === 'paper' || item.type === 'plastic'
       );
     } else if (area.id === 'urban') {
-      // All types in urban area
       trashPool = [...trashItems];
     }
-
-    // Randomly select items
     for (let i = 0; i < area.trashCount; i++) {
       const randomItem = trashPool[Math.floor(Math.random() * trashPool.length)];
       areaTrash.push({ ...randomItem, id: `${randomItem.id}-${i}` });
     }
-
     return areaTrash.sort(() => Math.random() - 0.5);
   };
-
   const collectTrash = (item: TrashItem) => {
     setCollectedTrash(prev => [...prev, item]);
-    setCurrentTrashItems(prev => prev.filter(t => t.id !== item.id));
-    
+    setCurrentTrashItems(prev => prev.filter(t => t.id !== item.id));   
     let points = item.points;
-    
-    // Difficulty bonus
     if (item.difficulty === 3) points += 5;
     else if (item.difficulty === 2) points += 2;
-    
-    // Size bonus
     if (item.size === 'large') points += 5;
-    else if (item.size === 'medium') points += 2;
-    
+    else if (item.size === 'medium') points += 2;    
     setScore(prev => prev + points);
-    
-    // Update team score
     if (selectedTeam) {
       setTeamScores(prev => ({
         ...prev,
         [selectedTeam.id]: prev[selectedTeam.id] + points
       }));
     }
-
-    // Simulate other teams collecting trash
     teams.forEach(team => {
       if (team.id !== selectedTeam?.id) {
         const randomPoints = Math.floor(Math.random() * 15) + 5;
@@ -269,27 +215,20 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
         }));
       }
     });
-
-    // Check if all trash is collected
     if (currentTrashItems.length <= 1) {
       setTimeout(() => startSortingPhase(), 500);
     }
   };
-
   const startSortingPhase = () => {
     setGameState('sorting');
     setSortingPhase(true);
   };
-
   const sortTrashItem = (item: TrashItem, category: string) => {
     setSortedItems(prev => ({
       ...prev,
       [category]: [...prev[category], item]
-    }));
-    
+    }));   
     setCollectedTrash(prev => prev.filter(t => t.id !== item.id));
-    
-    // Check if sorting is correct
     if (item.recycleCategory === category) {
       const bonus = item.points * 0.5;
       setScore(prev => prev + bonus);
@@ -299,31 +238,23 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
         bonusPoints: prev.bonusPoints + bonus
       }));
     }
-
     setGameStats(prev => ({
       ...prev,
       totalItems: prev.totalItems + 1
     }));
-
-    // Check if sorting is complete
     if (collectedTrash.length <= 1) {
       setTimeout(() => completeGame(), 1000);
     }
   };
-
   const completeGame = () => {
-    // Calculate time bonus
     const timeBonus = Math.max(0, timeRemaining * 2);
     setScore(prev => prev + timeBonus);
     setGameStats(prev => ({ ...prev, timeBonus }));
-
     const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-    const maxScore = selectedArea ? (selectedArea.trashCount * 30) + (selectedArea.timeLimit * 2) : 500;
-    
+    const maxScore = selectedArea ? (selectedArea.trashCount * 30) + (selectedArea.timeLimit * 2) : 500;   
     setGameState('completed');
     onComplete?.(score + timeBonus, maxScore, timeElapsed);
   };
-
   const resetGame = () => {
     setGameState('menu');
     setSelectedArea(null);
@@ -347,28 +278,22 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
       timeBonus: 0
     });
   };
-
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
-
   const getCurrentTeamRanking = () => {
-    if (!selectedTeam) return 1;
-    
+    if (!selectedTeam) return 1;   
     const sortedTeams = Object.entries(teamScores)
       .map(([id, score]) => ({ id, score }))
-      .sort((a, b) => b.score - a.score);
-    
+      .sort((a, b) => b.score - a.score);   
     return sortedTeams.findIndex(team => team.id === selectedTeam.id) + 1;
   };
-
   if (gameState === 'menu') {
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4">
-        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />
-        
+        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />        
         <div className="relative z-10 max-w-4xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
             <Button
@@ -380,7 +305,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
               Back
             </Button>
           </div>
-
           <Card className="bg-white/90 backdrop-blur-sm border-green-200 shadow-xl">
             <CardHeader className="text-center pb-8">
               <div className="flex justify-center mb-4">
@@ -394,7 +318,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                 and properly sort recyclables. Make a real impact on your community!
               </p>
             </CardHeader>
-
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="bg-gradient-to-br from-blue-100 to-cyan-100 rounded-lg p-4 text-center">
@@ -413,7 +336,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                   <p className="text-sm text-orange-700">Learn to sort waste into correct categories</p>
                 </div>
               </div>
-
               <div className="bg-gradient-to-r from-green-100 to-emerald-100 rounded-lg p-6">
                 <h4 className="text-green-800 mb-3">Challenge Phases:</h4>
                 <div className="grid md:grid-cols-2 gap-4 text-sm text-green-700">
@@ -423,7 +345,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                   <div>• Environmental impact tracking and education</div>
                 </div>
               </div>
-
               <div className="text-center">
                 <Button
                   onClick={startGame}
@@ -439,12 +360,10 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
       </div>
     );
   }
-
   if (gameState === 'area-select') {
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4">
-        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />
-        
+        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />        
         <div className="relative z-10 max-w-6xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
             <Button
@@ -456,14 +375,12 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
               Back
             </Button>
           </div>
-
           <Card className="bg-white/90 backdrop-blur-sm border-green-200 shadow-xl mb-8">
             <CardHeader className="text-center">
               <CardTitle className="text-2xl text-green-800 mb-2">Choose Cleanup Area</CardTitle>
               <p className="text-green-700">Select the area where your team will make an environmental impact!</p>
             </CardHeader>
           </Card>
-
           <div className="grid md:grid-cols-3 gap-6">
             {areas.map((area) => (
               <Card 
@@ -474,11 +391,9 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                 <CardContent className="p-6">
                   <div className={`h-32 rounded-lg bg-gradient-to-br ${area.backgroundColor} flex items-center justify-center mb-4`}>
                     <div className="text-6xl">{area.icon}</div>
-                  </div>
-                  
+                  </div>                 
                   <h3 className="text-xl text-green-800 mb-2">{area.name}</h3>
-                  <p className="text-sm text-green-600 mb-4">{area.description}</p>
-                  
+                  <p className="text-sm text-green-600 mb-4">{area.description}</p>                  
                   <div className="space-y-2 mb-4">
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600">Trash Items:</span>
@@ -499,12 +414,10 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                       </Badge>
                     </div>
                   </div>
-
                   <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-3 mb-4">
                     <h4 className="text-xs text-green-800 mb-1">Environmental Impact:</h4>
                     <p className="text-xs text-green-700">{area.environmentalImpact}</p>
                   </div>
-
                   <Button className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white">
                     Choose This Area
                   </Button>
@@ -516,12 +429,10 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
       </div>
     );
   }
-
   if (gameState === 'team-select') {
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4">
-        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />
-        
+        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />        
         <div className="relative z-10 max-w-6xl mx-auto">
           <div className="flex items-center gap-4 mb-8">
             <Button
@@ -533,7 +444,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
               Back
             </Button>
           </div>
-
           <Card className="bg-white/90 backdrop-blur-sm border-green-200 shadow-xl mb-8">
             <CardHeader className="text-center">
               <CardTitle className="text-2xl text-green-800 mb-2">Join a Cleanup Team</CardTitle>
@@ -542,7 +452,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
               </p>
             </CardHeader>
           </Card>
-
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {teams.map((team) => (
               <Card 
@@ -589,10 +498,8 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
       </div>
     );
   }
-
   if (gameState === 'playing' && selectedArea && selectedTeam) {
     const currentRanking = getCurrentTeamRanking();
-
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4">
         <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />
@@ -619,7 +526,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
               </Badge>
             </div>
           </div>
-
           <div className="grid md:grid-cols-4 gap-4 mb-6">
             <Card className="bg-white/90 backdrop-blur-sm border-green-200">
               <CardContent className="p-4 text-center">
@@ -646,7 +552,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
               </CardContent>
             </Card>
           </div>
-
           <div className="grid lg:grid-cols-4 gap-6">
             {/* Cleanup Area */}
             <div className="lg:col-span-3">
@@ -693,7 +598,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                         ))}
                       </div>
                     </div>
-
                     {/* Area Description Overlay */}
                     <div className="absolute bottom-4 left-4 bg-white/80 rounded-lg p-3 max-w-sm">
                       <h4 className="text-green-800 mb-1">{selectedArea.name}</h4>
@@ -704,7 +608,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                 </CardContent>
               </Card>
             </div>
-
             {/* Side Panel */}
             <div className="space-y-6">
               {/* Team Leaderboard */}
@@ -736,7 +639,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                     ))}
                 </CardContent>
               </Card>
-
               {/* Collected Items */}
               <Card className="bg-white/90 backdrop-blur-sm border-blue-200">
                 <CardHeader>
@@ -758,7 +660,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                   )}
                 </CardContent>
               </Card>
-
               {/* Environmental Impact */}
               <Card className="bg-white/90 backdrop-blur-sm border-green-200">
                 <CardHeader>
@@ -787,12 +688,10 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
       </div>
     );
   }
-
   if (gameState === 'sorting' && selectedArea && selectedTeam) {
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-orange-50 via-yellow-50 to-red-50 p-4">
-        <div className="absolute inset-0 bg-gradient-to-t from-orange-100/20 to-transparent" />
-        
+        <div className="absolute inset-0 bg-gradient-to-t from-orange-100/20 to-transparent" />       
         <div className="relative z-10 max-w-7xl mx-auto">
           <div className="flex items-center justify-between mb-6">
             <Button
@@ -812,7 +711,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
               </Badge>
             </div>
           </div>
-
           <Card className="bg-white/95 backdrop-blur-sm border-orange-200 shadow-xl mb-6">
             <CardHeader className="text-center">
               <CardTitle className="text-orange-800">Waste Sorting Station</CardTitle>
@@ -825,7 +723,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
               />
             </CardHeader>
           </Card>
-
           <div className="grid lg:grid-cols-3 gap-6">
             {/* Items to Sort */}
             <div className="lg:col-span-1">
@@ -860,7 +757,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                 </CardContent>
               </Card>
             </div>
-
             {/* Sorting Categories */}
             <div className="lg:col-span-2">
               <div className="grid md:grid-cols-2 gap-4">
@@ -888,7 +784,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                     </div>
                   </CardContent>
                 </Card>
-
                 {/* Compostable */}
                 <Card 
                   className="bg-white/90 backdrop-blur-sm border-brown-200 min-h-48"
@@ -913,7 +808,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                     </div>
                   </CardContent>
                 </Card>
-
                 {/* Hazardous */}
                 <Card 
                   className="bg-white/90 backdrop-blur-sm border-red-200 min-h-48"
@@ -938,7 +832,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                     </div>
                   </CardContent>
                 </Card>
-
                 {/* Landfill */}
                 <Card 
                   className="bg-white/90 backdrop-blur-sm border-gray-200 min-h-48"
@@ -970,18 +863,15 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
       </div>
     );
   }
-
   if (gameState === 'completed' && selectedArea && selectedTeam) {
     const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
     const maxScore = (selectedArea.trashCount * 30) + (selectedArea.timeLimit * 2);
     const finalRanking = getCurrentTeamRanking();
     const ecoPoints = Math.floor(score / 3);
     const sortingAccuracy = gameStats.totalItems > 0 ? Math.round((gameStats.correctSorts / gameStats.totalItems) * 100) : 0;
-
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4">
-        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />
-        
+        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />       
         <div className="relative z-10 max-w-4xl mx-auto">
           <Card className="bg-white/95 backdrop-blur-sm border-green-200 shadow-xl">
             <CardHeader className="text-center">
@@ -1010,7 +900,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                  'Good effort! Every bit of cleanup makes a difference!'}
               </p>
             </CardHeader>
-
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-4">
@@ -1034,7 +923,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                   </div>
                 </div>
               </div>
-
               <div className="grid md:grid-cols-3 gap-4">
                 <div className="bg-gradient-to-r from-green-100 to-emerald-100 rounded-lg p-4 text-center">
                   <div className="text-xl text-green-800 mb-1">{gameStats.bonusPoints}</div>
@@ -1049,7 +937,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                   <div className="text-sm text-purple-600">Team Ranking</div>
                 </div>
               </div>
-
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-6">
                 <h4 className="text-green-800 mb-3">Environmental Impact:</h4>
                 <p className="text-green-700">
@@ -1059,7 +946,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
                   Every piece of trash properly disposed of helps protect our ecosystems and wildlife.
                 </p>
               </div>
-
               <div className="flex justify-center gap-4">
                 <Button
                   onClick={resetGame}
@@ -1082,8 +968,6 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
       </div>
     );
   }
-
   return null;
 };
-
 export default TrashTagChallenge;
