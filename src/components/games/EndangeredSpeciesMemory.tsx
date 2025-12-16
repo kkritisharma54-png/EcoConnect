@@ -3,12 +3,12 @@ import { motion, AnimatePresence } from 'motion/react';
 import { TreePine, Award, RotateCcw, CheckCircle, Eye, Heart } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-
 interface EndangeredSpeciesMemoryProps {
-  onComplete: (score: number) => void;
   onBack: () => void;
+  userName: string;
+  onPointsUpdated: () => Promise<void>;
+  addPointsForUser: (points: number) => Promise<void>;
 }
-
 interface Species {
   id: string;
   name: string;
@@ -17,7 +17,6 @@ interface Species {
   fact: string;
   status: string;
 }
-
 interface CardType {
   id: string;
   speciesId: string;
@@ -27,8 +26,11 @@ interface CardType {
   matched: boolean;
   flipped: boolean;
 }
-
-const EndangeredSpeciesMemory = ({ onComplete, onBack }: EndangeredSpeciesMemoryProps) => {
+const EndangeredSpeciesMemory = ({   onBack,
+  userName,
+  addPointsForUser,
+  onPointsUpdated }: EndangeredSpeciesMemoryProps) => {
+  const [rewardGranted, setRewardGranted] = useState(false);
   const [cards, setCards] = useState<CardType[]>([]);
   const [flippedCards, setFlippedCards] = useState<string[]>([]);
   const [matchedPairs, setMatchedPairs] = useState(0);
@@ -36,7 +38,6 @@ const EndangeredSpeciesMemory = ({ onComplete, onBack }: EndangeredSpeciesMemory
   const [score, setScore] = useState(0);
   const [gameComplete, setGameComplete] = useState(false);
   const [showFact, setShowFact] = useState<Species | null>(null);
-
   const species: Species[] = [
     {
       id: 'tiger',
@@ -178,26 +179,34 @@ const EndangeredSpeciesMemory = ({ onComplete, onBack }: EndangeredSpeciesMemory
       }
     }
   };
-
   useEffect(() => {
-    if (matchedPairs === species.length) {
-      const bonusScore = Math.max(0, (50 - moves) * 5); // Bonus for efficiency
-      setScore(prev => prev + bonusScore);
-      setGameComplete(true);
-      setTimeout(() => onComplete(score + bonusScore), 2000);
-    }
-  }, [matchedPairs, species.length, moves, score, onComplete]);
-
+  if (matchedPairs === species.length && !rewardGranted) {
+    setRewardGranted(true);
+    const bonusScore = Math.max(0, (50 - moves) * 5);
+    const finalScore = score + bonusScore;
+    setScore(finalScore);
+    setGameComplete(true);
+    const ecoPoints = Math.floor(finalScore / 5);
+    (async () => {
+      try {
+        await addPointsForUser(ecoPoints);
+        await onPointsUpdated();
+      } catch (err) {
+        console.error('EcoPoints update failed:', err);
+      }
+    })();
+  }
+}, [matchedPairs, moves, score, rewardGranted, addPointsForUser, onPointsUpdated]);
   const resetGame = () => {
-    setMatchedPairs(0);
-    setMoves(0);
-    setScore(0);
-    setGameComplete(false);
-    setFlippedCards([]);
-    setShowFact(null);
-    initializeGame();
+  setMatchedPairs(0);
+  setMoves(0);
+  setScore(0);
+  setGameComplete(false);
+  setFlippedCards([]);
+  setShowFact(null);
+  setRewardGranted(false);
+  initializeGame();
   };
-
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-4xl bg-white max-h-[90vh] overflow-y-auto">

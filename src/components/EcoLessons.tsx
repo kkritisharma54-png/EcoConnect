@@ -390,7 +390,7 @@ const fetchPoints = useCallback(async () => {
     case 'compost-hunt':
       return <CompostScavengerHunt {...commonProps} />;
     case 'species-memory':
-      return <EndangeredSpeciesMemory onComplete={addPointsForUser} {...commonProps} />;
+      return <EndangeredSpeciesMemory {...commonProps} />;
     case 'habitat-explorer':
       return <HabitatExplorer {...commonProps} />;
     case 'wind-trivia':
