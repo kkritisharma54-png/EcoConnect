@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, JSXElementConstructor, Key, ReactElement, ReactNode, ReactPortal } from 'react';
 import { 
   Leaf, 
   Droplets, 
@@ -36,12 +36,32 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Textarea } from './ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from './ui/dialog';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-
+import { supabase } from '../supabaseClient';
 interface EcoChallengesProps {
   onBack: () => void;
   userName: string;
 }
+async function uploadProofFiles(userId: string, files: File[], activityId: number) {
+  const uploadedUrls: string[] = [];
 
+  for (const file of files) {
+    const filePath = `${userId}/${activityId}/${Date.now()}-${file.name}`;
+
+    const { error } = await supabase.storage
+      .from('eco-proof')
+      .upload(filePath, file);
+
+    if (error) throw error;
+
+    const { data } = supabase.storage
+      .from('eco-proof')
+      .getPublicUrl(filePath);
+
+    uploadedUrls.push(data.publicUrl);
+  }
+
+  return uploadedUrls;
+}
 const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
   const [showFloatingElements, setShowFloatingElements] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -51,6 +71,15 @@ const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const [submissionText, setSubmissionText] = useState('');
   const [location, setLocation] = useState('');
+  const [challenges, setChallenges] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userCompleted, setUserCompleted] = useState(0);
+  const [userTotalPoints, setUserTotalPoints] = useState(0);
+  const [activeChallenges, setActiveChallenges] = useState(0);   // for this user
+const [totalParticipants, setTotalParticipants] = useState(0); // all users
+     // already have this
+
+
 
   useEffect(() => {
     const timer = setTimeout(() => setShowFloatingElements(true), 300);
@@ -64,122 +93,69 @@ const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
     { id: 'nature', name: 'Nature', icon: TreePine, color: 'text-emerald-600', bgColor: 'bg-emerald-100' },
   ];
 
-  const challenges = [
-    {
-      id: 1,
-      title: 'Plant a Tree for the Future',
-      description: 'Plant a tree in your community and document its growth over time',
-      category: 'nature',
-      difficulty: 'beginner',
-      duration: '1 week',
-      points: 200,
-      participants: 1250,
-      deadline: '2024-01-15',
-      status: 'active',
-      image: 'https://images.unsplash.com/photo-1733766903731-d171d1c1b0ec?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxlbnZpcm9ubWVudGFsJTIwY2hhbGxlbmdlJTIwdHJlZSUyMHBsYW50aW5nfGVufDF8fHx8MTc1NzE2MzM5Mnww&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      steps: [
-        'Choose a suitable location for planting',
-        'Select an appropriate tree species for your climate',
-        'Dig a hole twice the width of the root ball',
-        'Plant the tree and water thoroughly',
-        'Take before and after photos',
-        'Set up a care schedule for ongoing maintenance'
-      ],
-      requirements: ['Photo/video proof', 'Location tagging', 'Care plan documentation'],
-      tags: ['Environmental Impact', 'Community Action', 'Long-term Commitment']
-    },
-    {
-      id: 2,
-      title: 'Water Conservation Challenge',
-      description: 'Reduce your household water usage by 25% this month',
-      category: 'water',
-      difficulty: 'intermediate',
-      duration: '1 month',
-      points: 300,
-      participants: 850,
-      deadline: '2024-01-30',
-      status: 'active',
-      image: 'https://images.unsplash.com/photo-1666413767635-78c79a06b4db?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx3YXRlciUyMGNvbnNlcnZhdGlvbiUyMGVkdWNhdGlvbnxlbnwxfHx8fDE3NTcxNjMzMTl8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      steps: [
-        'Record your baseline water usage for one week',
-        'Identify areas where water can be saved',
-        'Implement water-saving techniques',
-        'Monitor and track daily usage',
-        'Document your conservation methods',
-        'Submit final usage comparison report'
-      ],
-      requirements: ['Water bill comparison', 'Daily usage logs', 'Photo documentation'],
-      tags: ['Resource Conservation', 'Data Tracking', 'Lifestyle Change']
-    },
-    {
-      id: 3,
-      title: 'Zero Waste Week',
-      description: 'Go one full week producing minimal to zero waste',
-      category: 'waste',
-      difficulty: 'advanced',
-      duration: '1 week',
-      points: 400,
-      participants: 420,
-      deadline: '2024-01-20',
-      status: 'active',
-      image: 'https://images.unsplash.com/photo-1637681262973-a516e647e826?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZWN5Y2xpbmclMjB3YXN0ZSUyMG1hbmFnZW1lbnR8ZW58MXx8fHwxNzU3MTYzMzk1fDA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      steps: [
-        'Plan your meals to avoid food waste',
-        'Bring reusable containers for shopping',
-        'Avoid single-use plastics completely',
-        'Compost organic waste',
-        'Document all waste produced',
-        'Share tips and challenges faced'
-      ],
-      requirements: ['Daily waste photos', 'Shopping receipts', 'Reflection journal'],
-      tags: ['Waste Reduction', 'Lifestyle Challenge', 'Awareness Building']
-    },
-    {
-      id: 4,
-      title: 'Solar Energy Installation',
-      description: 'Install solar panels or solar-powered devices in your home',
-      category: 'energy',
-      difficulty: 'advanced',
-      duration: '2 weeks',
-      points: 500,
-      participants: 180,
-      deadline: '2024-02-01',
-      status: 'active',
-      image: 'https://images.unsplash.com/photo-1655300256486-4ec7251bf84e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHxyZW5ld2FibGUlMjBlbmVyZ3klMjBzb2xhciUyMHBhbmVsc3xlbnwxfHx8fDE3NTcwNzAzOTJ8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral',
-      steps: [
-        'Research solar options for your location',
-        'Calculate energy needs and costs',
-        'Choose appropriate solar equipment',
-        'Install solar devices (with professional help if needed)',
-        'Monitor energy generation',
-        'Document savings and environmental impact'
-      ],
-      requirements: ['Installation photos', 'Energy monitoring data', 'Cost-benefit analysis'],
-      tags: ['Renewable Energy', 'Investment', 'Technical Challenge']
-    },
-    {
-      id: 5,
-      title: 'Community Garden Initiative',
-      description: 'Start or contribute to a community garden project',
-      category: 'nature',
-      difficulty: 'intermediate',
-      duration: '3 weeks',
-      points: 350,
-      participants: 680,
-      deadline: '2024-01-25',
-      status: 'active',
-      steps: [
-        'Find or create a community garden space',
-        'Organize volunteers and resources',
-        'Plan and plant vegetables or herbs',
-        'Establish maintenance schedule',
-        'Document community engagement',
-        'Share harvest with participants'
-      ],
-      requirements: ['Community photos', 'Volunteer documentation', 'Growth progress photos'],
-      tags: ['Community Building', 'Food Security', 'Collaboration']
-    }
-  ];
+  useEffect(() => {
+  const loadChallenges = async () => {
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from('eco_challenge')
+      .select('*')
+      .eq('status', 'active')
+      .order('deadline', { ascending: true });
+
+    if (!error && data) setChallenges(data);
+    setLoading(false);
+  };
+
+  loadChallenges();
+}, []);
+   const loadStats = async () => {
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) return;
+
+  // user-specific activities
+  const { data: userActivities, error: userActError } = await supabase
+    .from('eco_activity')
+    .select('challenge_id, points, status')
+    .eq('user_id', user.id);
+
+  if (!userActError && userActivities) {
+    const completed = userActivities.filter(
+      (a) => a.status === 'submitted' || a.status === 'approved'
+    );
+
+    // distinct challenges this user has submitted for
+    const challengeIds = new Set(completed.map((a) => a.challenge_id));
+    setActiveChallenges(challengeIds.size);
+    setUserCompleted(challengeIds.size);
+
+    const sumPoints = completed.reduce(
+      (sum, a) => sum + (a.points || 0),
+      0
+    );
+    setUserTotalPoints(sumPoints);
+  }
+
+  // global participants (unique users with at least one submission)
+  const { data: allActivities, error: allActError } = await supabase
+    .from('eco_activity')
+    .select('user_id, status');
+
+  if (!allActError && allActivities) {
+    const usersWithSubmissions = new Set(
+      allActivities
+        .filter((a) => a.status === 'submitted' || a.status === 'approved')
+        .map((a) => a.user_id)
+    );
+    setTotalParticipants(usersWithSubmissions.size);
+  }
+};
+useEffect(() => {
+  loadStats();
+}, []);
 
   // Filter challenges
   const filteredChallenges = challenges.filter(challenge => {
@@ -191,9 +167,10 @@ const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
   });
 
   // Statistics
-  const activeChallenges = challenges.filter(c => c.status === 'active').length;
-  const totalParticipants = challenges.reduce((sum, c) => sum + c.participants, 0);
-  const totalPoints = challenges.reduce((sum, c) => sum + c.points, 0);
+//   const activeChallenges = challenges.filter(c => c.status === 'active').length;
+// const totalParticipants = challenges.reduce((sum, c) => sum + c.participants, 0);
+// const totalPoints = challenges.reduce((sum, c) => sum + c.points, 0);
+
 
   // Floating nature elements
   const floatingElements = [
@@ -264,22 +241,76 @@ const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
 
-  const handleSubmitProof = () => {
-    // Handle submission logic here
-    console.log('Submitting proof:', {
-      challenge: selectedChallenge?.id,
-      files: uploadedFiles,
-      text: submissionText,
-      location
-    });
-    
-    // Reset form
-    setUploadedFiles([]);
-    setSubmissionText('');
-    setLocation('');
-    setSelectedChallenge(null);
-  };
+  const handleSubmitProof = async () => {
+  if (!selectedChallenge) return;
 
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) {
+    console.error('No user', userError);
+    return;
+  }
+
+  // 1) create eco_activity row
+  const { data: activity, error: activityError } = await supabase
+    .from('eco_activity')
+    .insert({
+      user_id: user.id,
+      challenge_id: selectedChallenge.id,
+      active_date: new Date().toISOString().slice(0, 10),
+      points: selectedChallenge.points,       // reward
+      description: submissionText,
+      activity_type: 'challenge_submission',
+      status: 'submitted',
+    })
+    .select('id')
+    .single();
+
+  if (activityError || !activity) {
+    console.error('Activity insert error', activityError);
+    return;
+  }
+
+  const activityId = activity.id;
+
+  // 2) upload files to Storage
+  let proofUrls: string[] = [];
+  if (uploadedFiles.length > 0) {
+    proofUrls = await uploadProofFiles(user.id, uploadedFiles, activityId);
+  }
+
+  // 3) store URLs in eco_activity
+  if (proofUrls.length > 0) {
+    const { error: updateError } = await supabase
+      .from('eco_activity')
+      .update({ proof_urls: proofUrls })
+      .eq('id', activityId);
+
+    if (updateError) {
+      console.error('Update proof URLs error', updateError);
+      return;
+    }
+  }
+
+  // 4) reset UI
+  setUploadedFiles([]);
+  setSubmissionText('');
+  setLocation('');
+  setSelectedChallenge(null);
+
+  await loadStats();
+
+};
+
+  if (loading) {
+    return (
+      <div className="p-8 text-center text-slate-600">
+        Loading challenges...
+      </div>
+    );
+  }
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 p-4">
       {/* Environmental Background */}
@@ -371,7 +402,7 @@ const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
             <Card className="bg-white/80 backdrop-blur-sm border-emerald-200">
               <CardContent className="p-4 text-center">
                 <Award className="text-yellow-600 mx-auto mb-2" size={24} />
-                <div className="text-xl text-slate-800">{totalPoints.toLocaleString()}</div>
+                <div className="text-xl text-slate-800">{userTotalPoints.toLocaleString()}</div>
                 <div className="text-sm text-slate-600">Total Points</div>
               </CardContent>
             </Card>
@@ -381,8 +412,9 @@ const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
             <Card className="bg-white/80 backdrop-blur-sm border-emerald-200">
               <CardContent className="p-4 text-center">
                 <CheckCircle className="text-green-600 mx-auto mb-2" size={24} />
-                <div className="text-xl text-slate-800">12</div>
+                <div className="text-xl text-slate-800">{userCompleted}</div>
                 <div className="text-sm text-slate-600">Your Completed</div>
+
               </CardContent>
             </Card>
           </motion.div>
@@ -491,9 +523,9 @@ const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
               >
                 <Card className="bg-white/80 backdrop-blur-sm border-emerald-200 h-full hover:shadow-lg transition-all duration-300">
                   <div className="relative">
-                    {challenge.image && (
+                    {challenge.image_url && (
                       <ImageWithFallback
-                        src={challenge.image}
+                        src={challenge.image_url}
                         alt={challenge.title}
                         className="w-full h-48 object-cover rounded-t-lg"
                       />
@@ -547,7 +579,7 @@ const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
                       <div>
                         <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Requirements</div>
                         <div className="flex flex-wrap gap-2">
-                          {challenge.requirements.slice(0, 2).map((req, reqIndex) => (
+                          {challenge.requirements.slice(0, 2).map((req: any, reqIndex: any) => (
                             <Badge key={reqIndex} variant="secondary" className="text-xs">
                               {req}
                             </Badge>
@@ -563,7 +595,7 @@ const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
                       <div>
                         <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Tags</div>
                         <div className="flex flex-wrap gap-2">
-                          {challenge.tags.slice(0, 2).map((tag, tagIndex) => (
+                          {challenge.tags.slice(0, 2).map((tag: any, tagIndex: any) => (
                             <Badge key={tagIndex} variant="outline" className="text-xs border-emerald-200">
                               {tag}
                             </Badge>
@@ -597,9 +629,9 @@ const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
                         </DialogHeader>
                         
                         <div className="space-y-6">
-                          {challenge.image && (
+                          {challenge.image_url && (
                             <ImageWithFallback
-                              src={challenge.image}
+                              src={challenge.image_url}
                               alt={challenge.title}
                               className="w-full h-64 object-cover rounded-lg"
                             />
@@ -613,7 +645,7 @@ const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
                           <div>
                             <h4 className="text-emerald-800 mb-3">Step-by-Step Instructions</h4>
                             <div className="space-y-3">
-                              {challenge.steps.map((step, stepIndex) => (
+                              {challenge.steps.map((step: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined, stepIndex: Key | null | undefined) => (
                                 <div key={stepIndex} className="flex gap-3">
                                   <div className="w-6 h-6 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-sm flex-shrink-0 mt-0.5">
                                     {stepIndex + 1}
@@ -627,7 +659,7 @@ const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
                           <div>
                             <h4 className="text-emerald-800 mb-2">Requirements</h4>
                             <div className="space-y-2">
-                              {challenge.requirements.map((req, reqIndex) => (
+                              {challenge.requirements.map((req: string | number | bigint | boolean | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | ReactPortal | Promise<string | number | bigint | boolean | ReactPortal | ReactElement<unknown, string | JSXElementConstructor<any>> | Iterable<ReactNode> | null | undefined> | null | undefined, reqIndex: Key | null | undefined) => (
                                 <div key={reqIndex} className="flex items-center gap-2">
                                   <CheckCircle className="text-emerald-600" size={16} />
                                   <span className="text-slate-600 text-sm">{req}</span>
@@ -648,109 +680,123 @@ const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
                       </DialogContent>
                     </Dialog>
                     
-                    <Dialog open={selectedChallenge?.id === challenge.id} onOpenChange={(open) => !open && setSelectedChallenge(null)}>
-                      <DialogTrigger asChild>
-                        <Button 
-                          className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white"
-                          onClick={() => setSelectedChallenge(challenge)}
-                        >
-                          Submit Proof
-                          <Upload size={16} className="ml-2" />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="max-w-2xl">
-                        <DialogHeader>
-                          <DialogTitle className="flex items-center gap-3">
-                            <Upload className="text-emerald-600" size={24} />
-                            Submit Proof for: {selectedChallenge?.title}
-                          </DialogTitle>
-                        </DialogHeader>
-                        
-                        <div className="space-y-6">
-                          <div>
-                            <label className="text-emerald-800 mb-2 block">Upload Photos/Videos</label>
-                            <div className="border-2 border-dashed border-emerald-200 rounded-lg p-6 text-center">
-                              <input
-                                type="file"
-                                multiple
-                                accept="image/*,video/*"
-                                onChange={handleFileUpload}
-                                className="hidden"
-                                id="file-upload"
-                              />
-                              <label htmlFor="file-upload" className="cursor-pointer">
-                                <Camera className="text-emerald-600 mx-auto mb-2" size={32} />
-                                <p className="text-slate-600">Click to upload photos or videos</p>
-                                <p className="text-slate-500 text-sm">PNG, JPG, MP4 up to 10MB each</p>
-                              </label>
-                            </div>
-                            
-                            {uploadedFiles.length > 0 && (
-                              <div className="mt-4 space-y-2">
-                                {uploadedFiles.map((file, index) => (
-                                  <div key={index} className="flex items-center justify-between p-2 bg-emerald-50 rounded">
-                                    <div className="flex items-center gap-2">
-                                      {file.type.startsWith('image/') ? <ImageIcon size={16} /> : <Video size={16} />}
-                                      <span className="text-sm">{file.name}</span>
-                                    </div>
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => removeFile(index)}
-                                      className="text-red-600 hover:text-red-700"
-                                    >
-                                      Remove
-                                    </Button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                          
-                          <div>
-                            <label className="text-emerald-800 mb-2 block">Location (optional)</label>
-                            <div className="relative">
-                              <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
-                              <Input
-                                placeholder="Enter location where you completed the challenge"
-                                value={location}
-                                onChange={(e) => setLocation(e.target.value)}
-                                className="pl-10 border-emerald-200 focus:border-emerald-400 focus:ring-emerald-200"
-                              />
-                            </div>
-                          </div>
-                          
-                          <div>
-                            <label className="text-emerald-800 mb-2 block">Description</label>
-                            <Textarea
-                              placeholder="Describe your experience, challenges faced, and outcomes..."
-                              value={submissionText}
-                              onChange={(e) => setSubmissionText(e.target.value)}
-                              className="border-emerald-200 focus:border-emerald-400 focus:ring-emerald-200"
-                              rows={4}
-                            />
-                          </div>
-                          
-                          <div className="flex gap-3">
-                            <Button
-                              variant="outline"
-                              className="flex-1 border-emerald-200"
-                              onClick={() => setSelectedChallenge(null)}
-                            >
-                              Cancel
-                            </Button>
-                            <Button
-                              className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white"
-                              onClick={handleSubmitProof}
-                              disabled={uploadedFiles.length === 0 && !submissionText.trim()}
-                            >
-                              Submit Proof
-                              <CheckCircle size={16} className="ml-2" />
-                            </Button>
-                          </div>
-                        </div>
-                      </DialogContent>
-                    </Dialog>
+                    <Dialog
+  open={selectedChallenge?.id === challenge.id}
+  onOpenChange={(open: any) => !open && setSelectedChallenge(null)}
+>
+  <DialogTrigger asChild>
+    <Button
+      className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white"
+      onClick={() => setSelectedChallenge(challenge)}
+    >
+      Submit Proof
+      <Upload size={16} className="ml-2" />
+    </Button>
+  </DialogTrigger>
+
+  <DialogContent className="max-w-2xl">
+    <DialogHeader>
+      <DialogTitle className="flex items-center gap-3">
+        <Upload className="text-emerald-600" size={24} />
+        Submit Proof for: {selectedChallenge?.title}
+      </DialogTitle>
+    </DialogHeader>
+
+    <div className="space-y-6">
+      <div>
+        <label className="text-emerald-800 mb-2 block">Upload Photos/Videos</label>
+        <div className="border-2 border-dashed border-emerald-200 rounded-lg p-6 text-center">
+          <input
+            type="file"
+            multiple
+            accept="image/*,video/*"
+            onChange={handleFileUpload}
+            className="hidden"
+            id="file-upload"
+          />
+          <label htmlFor="file-upload" className="cursor-pointer">
+            <Camera className="text-emerald-600 mx-auto mb-2" size={32} />
+            <p className="text-slate-600">Click to upload photos or videos</p>
+            <p className="text-slate-500 text-sm">PNG, JPG, MP4 up to 10MB each</p>
+          </label>
+        </div>
+
+        {uploadedFiles.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {uploadedFiles.map((file, index) => (
+              <div
+                key={index}
+                className="flex items-center justify-between p-2 bg-emerald-50 rounded"
+              >
+                <div className="flex items-center gap-2">
+                  {file.type.startsWith('image/') ? (
+                    <ImageIcon size={16} />
+                  ) : (
+                    <Video size={16} />
+                  )}
+                  <span className="text-sm">{file.name}</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => removeFile(index)}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <label className="text-emerald-800 mb-2 block">Location (optional)</label>
+        <div className="relative">
+          <MapPin
+            className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"
+            size={20}
+          />
+          <Input
+            placeholder="Enter location where you completed the challenge"
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            className="pl-10 border-emerald-200 focus:border-emerald-400 focus:ring-emerald-200"
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="text-emerald-800 mb-2 block">Description</label>
+        <Textarea
+          placeholder="Describe your experience, challenges faced, and outcomes..."
+          value={submissionText}
+          onChange={(e) => setSubmissionText(e.target.value)}
+          className="border-emerald-200 focus:border-emerald-400 focus:ring-emerald-200"
+          rows={4}
+        />
+      </div>
+
+      <div className="flex gap-3">
+        <Button
+          variant="outline"
+          className="flex-1 border-emerald-200"
+          onClick={() => setSelectedChallenge(null)}
+        >
+          Cancel
+        </Button>
+        <Button
+          className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white"
+          onClick={handleSubmitProof}
+          disabled={uploadedFiles.length === 0 && !submissionText.trim()}
+        >
+          Submit Proof
+          <CheckCircle size={16} className="ml-2" />
+        </Button>
+      </div>
+    </div>
+  </DialogContent>
+</Dialog>
                   </div>
                 </Card>
               </motion.div>

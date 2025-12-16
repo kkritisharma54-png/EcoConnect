@@ -26,8 +26,6 @@ import { Progress } from './ui/progress';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import EcoContributionCalendar from './EcoContributionCalendar';
 import { supabase } from '../supabaseClient';
-
-
 interface EcoDashboardProps {
   userRole: 'student' | 'teacher' | 'ngo';
   userName: string;
@@ -35,31 +33,55 @@ interface EcoDashboardProps {
   onNavigateToChallenges: () => void;
   onLogout: () => void;
 }
-
-
 const EcoDashboard = ({
   userRole,
   userName,
   onNavigateToLessons,
   onNavigateToChallenges,
 }: EcoDashboardProps) => {
+  const [challengesDone, setChallengesDone] = useState(0);
+  const [userChallenges, setUserChallenges] = useState<any[]>([]);
   const [showFloatingElements, setShowFloatingElements] = useState(false);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [refreshCalendar, setRefreshCalendar] = useState(false);
-  // 🟢 NEW: ecoPoints state and Supabase fetching
-const [ecoPoints, setEcoPoints] = useState(0);
-const maxEcoPoints = 1500;
-
+  const [ecoPoints, setEcoPoints] = useState(0);
+  const maxEcoPoints = 1500;
+useEffect(() => {
+  const fetchUserChallenges = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('eco_activity')
+      .select(`
+        id,
+        status,
+        points,
+        created_at,
+        challenge_id,
+        challenge:eco_challenge (
+          id,
+          title,
+          description,
+          deadline,
+          category
+        )
+      `)
+      .eq('user_id', user.id)
+      .in('status', ['active', 'pending', 'submitted', 'approved']);
+    if (!error && data) {
+      setUserChallenges(data);
+    }
+  };
+  fetchUserChallenges();
+}, []);
 useEffect(() => {
   const fetchPoints = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-
     const { data, error } = await supabase
       .from('eco_activity')
       .select('points')
       .eq('user_id', user.id);
-
     if (!error && data) {
       const totalPoints = data.reduce((sum, row) => sum + (row.points || 0), 0);
       setEcoPoints(totalPoints);
@@ -83,9 +105,7 @@ useEffect(() => {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
-
       const today = new Date().toISOString().split('T')[0];
-
       const { data: existing, error: existingError } = await supabase
         .from('eco_activity')
         .select('*')
@@ -102,7 +122,21 @@ useEffect(() => {
 
     recordActivity();
   }, []);
-
+useEffect(() => {
+  const fetchChallengesDone = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('eco_activity')
+      .select('challenge_id, status')
+      .eq('user_id', user.id)
+      .in('status', ['submitted', 'approved']);
+    if (error || !data) return;
+    const uniqueChallenges = new Set(data.map(a => a.challenge_id));
+    setChallengesDone(uniqueChallenges.size);
+  };
+  fetchChallengesDone();
+}, []);
   // Fetch streak dynamically
   useEffect(() => {
     const fetchStreak = async () => {
@@ -110,46 +144,55 @@ useEffect(() => {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
-
       const { data, error } = await supabase
         .from('eco_activity')
         .select('active_date')
         .eq('user_id', user.id)
         .order('active_date', { ascending: false });
-
       if (error || !data) return;
-
       let streak = 0;
       let currentDate = new Date();
-
       for (const row of data) {
         const activeDate = new Date(row.active_date);
         const diffDays = Math.floor(
           (currentDate.getTime() - activeDate.getTime()) /
             (1000 * 60 * 60 * 24)
         );
-
         if (diffDays === 0 || diffDays === streak) {
           streak++;
         } else {
           break;
         }
       }
-
       setCurrentStreak(streak);
     };
-
     fetchStreak();
   }, [refreshCalendar]);
+  const uniqueActiveChallenges = (() => {
+  const map = new Map<number, any>();
+  [...userChallenges]
+    .sort(
+      (a, b) =>
+        new Date(b.created_at).getTime() -
+        new Date(a.created_at).getTime()
+    )
+    .forEach(item => {
+      if (item.challenge && !map.has(item.challenge_id)) {
+        map.set(item.challenge_id, item);
+      }
+    });
+
+  return Array.from(map.values());
+})();
 
   // Stats data
   const stats = [
     {
-      title: 'Challenges Done',
-      value: 12,
-      icon: Target,
-      color: 'from-emerald-500 to-green-500',
-    },
+  title: 'Challenges Done',
+  value: challengesDone,
+  icon: Target,
+  color: 'from-emerald-500 to-green-500',
+},
     {
       title: 'Lessons Learned',
       value: 8,
@@ -163,7 +206,6 @@ useEffect(() => {
       color: 'from-yellow-500 to-orange-500',
     },
   ];
-
   // Active challenges
   const activeChallenges = [
     {
@@ -200,7 +242,6 @@ useEffect(() => {
       color: 'from-yellow-500 to-orange-500',
     },
   ];
-
   // Badges
   const badges = [
     { id: 1, name: 'Water Warrior', icon: Droplets, earned: true },
@@ -212,7 +253,6 @@ useEffect(() => {
     { id: 7, name: 'Green Guru', icon: Leaf, earned: false },
     { id: 8, name: 'Planet Protector', icon: Trophy, earned: false },
   ];
-
   // Floating icons
   const floatingElements = [
     { Icon: Leaf, position: { top: '5%', left: '3%' } },
@@ -222,7 +262,6 @@ useEffect(() => {
     { Icon: Wind, position: { bottom: '20%', left: '4%' } },
     { Icon: Flower, position: { bottom: '35%', right: '6%' } },
   ];
-
   // Circular Progress component (unchanged)
   const CircularProgress = ({
     percentage,
@@ -238,7 +277,6 @@ useEffect(() => {
     const circumference = 2 * Math.PI * radius;
     const strokeDasharray = circumference;
     const strokeDashoffset = circumference - (percentage / 100) * circumference;
-
     return (
       <div className="relative flex items-center justify-center">
         <svg width="280" height="280" className="transform -rotate-90">
@@ -327,13 +365,11 @@ useEffect(() => {
               <p className="text-emerald-700">Ready to make a difference today?</p>
             </div>
           </div>
-
           <div className="flex items-center gap-4">
             <Badge className="bg-gradient-to-r from-orange-400 to-red-400 text-white border-0 shadow-md flex items-center gap-2">
               <Flame size={16} />
               {currentStreak} day streak!
             </Badge>
-
             <Button
               variant="outline"
               onClick={async () => {
@@ -348,7 +384,6 @@ useEffect(() => {
             </Button>
           </div>
         </div>
-
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column */}
@@ -361,7 +396,6 @@ useEffect(() => {
                 maxPoints={maxEcoPoints}
               />
             </Card>
-
             {/* Stats */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {stats.map((stat) => {
@@ -389,10 +423,8 @@ useEffect(() => {
                 <div className="text-xs text-slate-600">Total Points</div>
               </Card>
             </div>
-
             {/* Calendar */}
             <EcoContributionCalendar key={refreshCalendar ? 'a' : 'b'} />
-
             {/* Active Challenges */}
             <Card className="bg-white/80 backdrop-blur-sm border-emerald-200 shadow-lg">
               <CardHeader>
@@ -402,52 +434,51 @@ useEffect(() => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                {activeChallenges.map((challenge) => {
-                  const Icon = challenge.icon;
-                  return (
-                    <div key={challenge.id} className="p-4 rounded-lg border border-slate-200 hover:border-emerald-300">
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className={`p-2 rounded-full bg-gradient-to-r ${challenge.color}`}>
-                            <Icon className="text-white" size={20} />
-                          </div>
-                          <div>
-                            <h4 className="text-slate-800">{challenge.title}</h4>
-                            <p className="text-sm text-slate-600">{challenge.description}</p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          {challenge.status === 'active' && (
-                            <Badge variant="outline" className="text-blue-600 border-blue-200 mb-1">
-                              {challenge.daysLeft} days left
-                            </Badge>
-                          )}
-                          {challenge.status === 'pending' && (
-                            <Badge variant="outline" className="text-gray-600 border-gray-200 mb-1">
-                              Start Now
-                            </Badge>
-                          )}
-                          {challenge.status === 'completed' && (
-                            <Badge className="bg-green-100 text-green-700 border-green-200 mb-1">
-                              Completed
-                            </Badge>
-                          )}
-                          <div className="text-sm text-emerald-600">+{challenge.points} pts</div>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-slate-600">Progress</span>
-                          <span className="text-emerald-600">{challenge.progress}%</span>
-                        </div>
-                        <Progress value={challenge.progress} className="h-2" />
-                      </div>
-                    </div>
-                  );
-                })}
+                {uniqueActiveChallenges
+  .map(item => {
+    const challenge = item.challenge;
+    const daysLeft = challenge.deadline
+      ? Math.ceil(
+          (new Date(challenge.deadline).getTime() - Date.now()) /
+          (1000 * 60 * 60 * 24)
+        )
+      : 0;
+    return (
+      <div key={item.id} className="p-4 rounded-lg border border-slate-200">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <h4 className="text-slate-800">{challenge.title}</h4>
+            <p className="text-sm text-slate-600">
+              {challenge.description}
+            </p>
+          </div>
+          <div className="text-right">
+            {item.status === 'approved' && (
+              <Badge className="bg-green-100 text-green-700 mb-1">
+                Completed
+              </Badge>
+            )}
+            {item.status === 'submitted' && (
+              <Badge className="bg-yellow-100 text-yellow-700 mb-1">
+                Under Review
+              </Badge>
+            )}
+            {item.status !== 'approved' && (
+              <Badge variant="outline" className="mb-1">
+                {daysLeft > 0 ? `${daysLeft} days left` : 'Ending today'}
+              </Badge>
+            )}
+            <div className="text-sm text-emerald-600">
+              +{item.points} pts
+            </div>
+          </div>
+        </div>
+        <Progress value={item.status === 'approved' ? 100 : 60} />
+      </div>
+    );
+  })}
               </CardContent>
             </Card>
-
             {/* Buttons */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <Button onClick={onNavigateToLessons} className="bg-emerald-600 hover:bg-emerald-700 text-white h-16 text-lg">
