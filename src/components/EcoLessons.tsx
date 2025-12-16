@@ -398,7 +398,9 @@ const fetchPoints = useCallback(async () => {
     case 'wind-turbine-build':
       return <WindTurbineBuild  {...commonProps} addPointsForUser={commonProps.addPointsForUser} />;
     case 'seed-bomb-toss':
-      return <SeedBombToss {...commonProps} />;
+      return <SeedBombToss
+    {...commonProps}
+  />;
     case 'trash-tag-challenge':
       return <TrashTagChallenge {...commonProps} />;
     default:
@@ -426,7 +428,6 @@ const fetchPoints = useCallback(async () => {
       );
   }
 }
-
   return (
     <div className="relative min-h-screen overflow-hidden bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4 transition-colors duration-300">
       {/* Environmental Background */}

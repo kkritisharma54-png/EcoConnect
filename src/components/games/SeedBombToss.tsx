@@ -1,17 +1,17 @@
 import { motion } from 'motion/react';
-import { useState, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { TreePine, Target, Award, ArrowLeft, RotateCcw, Crosshair, Wind, MapPin } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
-
 interface SeedBombTossProps {
   onBack: () => void;
   userName?: string;
   onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
+  addPointsForUser: (points: number) => Promise<void>;
+  onPointsUpdated: () => Promise<void>;
 }
-
 interface TargetZone {
   id: string;
   x: number;
@@ -147,7 +147,12 @@ const targetZones: TargetZone[] = [
   }
 ];
 
-const SeedBombToss = ({ onBack, userName = 'Player', onComplete }: SeedBombTossProps) => {
+const SeedBombToss = ({ onBack,
+  userName = 'Player',
+  onComplete,
+  addPointsForUser,
+  onPointsUpdated }: SeedBombTossProps) => {
+  const hasCompletedRef = useRef(false);
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'completed'>('menu');
   const [currentLevel, setCurrentLevel] = useState(1);
   const [score, setScore] = useState(0);
@@ -173,7 +178,7 @@ const SeedBombToss = ({ onBack, userName = 'Player', onComplete }: SeedBombTossP
       timer = setTimeout(() => {
         setTimeRemaining(prev => prev - 1);
       }, 1000);
-    } else if (timeRemaining === 0) {
+    } else if (gameState === 'playing' && timeRemaining === 0) {
       completeGame();
     }
     return () => clearTimeout(timer);
@@ -194,6 +199,7 @@ const SeedBombToss = ({ onBack, userName = 'Player', onComplete }: SeedBombTossP
   }, [gameState]);
 
   const startGame = () => {
+    hasCompletedRef.current = false;
     setGameState('playing');
     setStartTime(Date.now());
     setScore(0);
@@ -253,21 +259,16 @@ const SeedBombToss = ({ onBack, userName = 'Player', onComplete }: SeedBombTossP
     let hit = false;
     let pointsEarned = 0;
     let biodiversityBonus = 0;
-
     targets.forEach(target => {
       if (hitTargets.includes(target.id)) return;
-
       const distance = Math.sqrt(
         Math.pow(actualX - target.x, 2) + Math.pow(actualY - target.y, 2)
       );
-
       const hitRadius = target.size / 8; // Convert size to hit radius
-
       if (distance <= hitRadius) {
         hit = true;
         pointsEarned += target.points;
-        biodiversityBonus += selectedSeedBomb.biodiversityScore;
-        
+        biodiversityBonus += selectedSeedBomb.biodiversityScore;  
         setHitTargets(prev => [...prev, target.id]);
         setGameStats(prev => ({
           ...prev,
@@ -276,14 +277,12 @@ const SeedBombToss = ({ onBack, userName = 'Player', onComplete }: SeedBombTossP
           biodiversityPoints: prev.biodiversityPoints + selectedSeedBomb.biodiversityScore,
           areasRestored: prev.areasRestored + 1
         }));
-
         // Bonus points for perfect center hits
         if (distance <= hitRadius * 0.3) {
           pointsEarned += 20; // Perfect hit bonus
         } else if (distance <= hitRadius * 0.6) {
           pointsEarned += 10; // Good hit bonus
         }
-
         // Seed bomb type bonus for appropriate targets
         if (
           (selectedSeedBomb.type === 'tree' && target.type === 'forest') ||
@@ -296,22 +295,18 @@ const SeedBombToss = ({ onBack, userName = 'Player', onComplete }: SeedBombTossP
         }
       }
     });
-
     const totalPointsThisRound = pointsEarned + biodiversityBonus;
     setScore(prev => prev + totalPointsThisRound);
-
     // Check if level is complete
     const newHitTargets = hit ? [...hitTargets, targets.find(t => !hitTargets.includes(t.id))?.id].filter(Boolean) : hitTargets;
     if (newHitTargets.length === targets.length) {
       setTimeout(() => nextLevel(), 1000);
     }
-
     // Check if game should end
     if (seedBombsLeft - 1 <= 0 && newHitTargets.length < targets.length) {
       setTimeout(() => completeGame(), 1000);
     }
   };
-
   const nextLevel = () => {
     const nextLevelNum = currentLevel + 1;
     setCurrentLevel(nextLevelNum);
@@ -319,21 +314,27 @@ const SeedBombToss = ({ onBack, userName = 'Player', onComplete }: SeedBombTossP
     setHitTargets([]);
     setSeedBombsLeft(prev => prev + 5); // Bonus seed bombs for completing level
     setScore(prev => prev + 100); // Level completion bonus
-
     if (nextLevelNum > 3) {
       completeGame();
     }
   };
-
-  const completeGame = () => {
-    const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-    const maxScore = 500 * currentLevel; // Rough maximum
-    
-    setGameState('completed');
-    onComplete?.(score, maxScore, timeElapsed);
-  };
-
+const completeGame = async () => {
+  if (hasCompletedRef.current) return; // 🛑 HARD STOP
+  hasCompletedRef.current = true;
+  setGameState('completed');
+  const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+  const maxScore = 500 * currentLevel;
+  const ecoPoints = Math.floor(score / 5);
+  try {
+    await addPointsForUser(ecoPoints);
+    await onPointsUpdated();
+  } catch (err) {
+    console.error('EcoPoints update failed:', err);
+  }
+  onComplete?.(score, maxScore, timeElapsed);
+};
   const resetGame = () => {
+    hasCompletedRef.current = false;
     setGameState('menu');
     setScore(0);
     setSeedBombsLeft(10);
@@ -649,8 +650,7 @@ const SeedBombToss = ({ onBack, userName = 'Player', onComplete }: SeedBombTossP
 
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4">
-        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />
-        
+        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />       
         <div className="relative z-10 max-w-4xl mx-auto">
           <Card className="bg-white/95 backdrop-blur-sm border-green-200 shadow-xl">
             <CardHeader className="text-center">
@@ -670,7 +670,6 @@ const SeedBombToss = ({ onBack, userName = 'Player', onComplete }: SeedBombTossP
                 increased biodiversity by {gameStats.biodiversityPoints} points!
               </p>
             </CardHeader>
-
             <CardContent className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-4">
@@ -694,7 +693,6 @@ const SeedBombToss = ({ onBack, userName = 'Player', onComplete }: SeedBombTossP
                   </div>
                 </div>
               </div>
-
               <div className="grid md:grid-cols-2 gap-4">
                 <div className="bg-gradient-to-r from-green-100 to-emerald-100 rounded-lg p-4">
                   <h4 className="text-green-800 mb-2">Biodiversity Impact</h4>
@@ -709,7 +707,6 @@ const SeedBombToss = ({ onBack, userName = 'Player', onComplete }: SeedBombTossP
                   <div className="text-sm text-blue-600">Perfect center hits</div>
                 </div>
               </div>
-
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-6">
                 <h4 className="text-green-800 mb-3">Environmental Impact:</h4>
                 <p className="text-green-700">
@@ -719,7 +716,6 @@ const SeedBombToss = ({ onBack, userName = 'Player', onComplete }: SeedBombTossP
                   around the world to bring nature back to cities and heal damaged ecosystems.
                 </p>
               </div>
-
               <div className="flex justify-center gap-4">
                 <Button
                   onClick={resetGame}
@@ -745,5 +741,4 @@ const SeedBombToss = ({ onBack, userName = 'Player', onComplete }: SeedBombTossP
 
   return null;
 };
-
 export default SeedBombToss;
