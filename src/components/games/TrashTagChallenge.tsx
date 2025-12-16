@@ -7,8 +7,12 @@ import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 interface TrashTagChallengeProps {
   onBack: () => void;
-  userName?: string;
+  userName: string;
   onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
+
+  // 🌱 eco integration
+  addPointsForUser: (points: number) => Promise<void>;
+  onPointsUpdated: () => Promise<void>;
 }
 interface TrashItem {
   id: string;
@@ -99,7 +103,11 @@ const teams: Team[] = [
   { id: 'trash-terminators', name: 'Trash Terminators', color: 'red', score: 0, itemsCollected: 0, avatar: '🗑️' },
   { id: 'green-guardians', name: 'Green Guardians', color: 'emerald', score: 0, itemsCollected: 0, avatar: '🛡️' }
 ];
-const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTagChallengeProps) => {
+const TrashTagChallenge = ({   onBack,
+  userName,
+  onComplete,
+  addPointsForUser,
+  onPointsUpdated }: TrashTagChallengeProps) => {
   const [gameState, setGameState] = useState<'menu' | 'area-select' | 'team-select' | 'playing' | 'sorting' | 'completed'>('menu');
   const [selectedArea, setSelectedArea] = useState<Area | null>(null);
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
@@ -246,15 +254,27 @@ const TrashTagChallenge = ({ onBack, userName = 'Player', onComplete }: TrashTag
       setTimeout(() => completeGame(), 1000);
     }
   };
-  const completeGame = () => {
-    const timeBonus = Math.max(0, timeRemaining * 2);
-    setScore(prev => prev + timeBonus);
-    setGameStats(prev => ({ ...prev, timeBonus }));
-    const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-    const maxScore = selectedArea ? (selectedArea.trashCount * 30) + (selectedArea.timeLimit * 2) : 500;   
-    setGameState('completed');
-    onComplete?.(score + timeBonus, maxScore, timeElapsed);
-  };
+const completeGame = async () => {
+  const timeBonus = Math.max(0, timeRemaining * 2);
+  const finalScore = score + timeBonus;
+  setScore(finalScore);
+  setGameStats(prev => ({ ...prev, timeBonus }));
+  const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+  const maxScore = selectedArea
+    ? (selectedArea.trashCount * 30) + (selectedArea.timeLimit * 2)
+    : 500;
+  // 🌱 ECO POINTS
+  const ecoPoints = Math.floor(finalScore / 3);
+  // ✅ delegate to parent (ecolessons)
+  try {
+    await addPointsForUser(ecoPoints);
+    await onPointsUpdated();
+  } catch (err) {
+    console.error('EcoPoints update failed:', err);
+  }
+  setGameState('completed');
+  onComplete?.(finalScore, maxScore, timeElapsed);
+};
   const resetGame = () => {
     setGameState('menu');
     setSelectedArea(null);
