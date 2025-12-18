@@ -5,13 +5,11 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
-
 interface SolarWordGameProps {
   onBack: () => void;
   userName?: string;
   onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
 }
-
 interface WordClue {
   word: string;
   clue: string;

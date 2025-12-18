@@ -5,13 +5,13 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
-
 interface HabitatExplorerProps {
   onBack: () => void;
-  userName?: string;
+  userName: string;
+  onPointsUpdated: () => Promise<void>;
+  addPointsForUser: (points: number) => Promise<void>;
   onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
 }
-
 interface Habitat {
   id: string;
   name: string;
@@ -22,7 +22,6 @@ interface Habitat {
   image: string;
   color: string;
 }
-
 interface Threat {
   id: string;
   name: string;
@@ -31,7 +30,6 @@ interface Threat {
   solution: string;
   points: number;
 }
-
 interface Species {
   id: string;
   name: string;
@@ -39,7 +37,6 @@ interface Species {
   description: string;
   emoji: string;
 }
-
 const habitats: Habitat[] = [
   {
     id: 'rainforest',
@@ -160,7 +157,8 @@ const habitats: Habitat[] = [
   }
 ];
 
-const HabitatExplorer = ({ onBack, userName = 'Player', onComplete }: HabitatExplorerProps) => {
+const HabitatExplorer = ({ onBack, userName = 'Player', onComplete, onPointsUpdated,
+  addPointsForUser }: HabitatExplorerProps) => {
   const [gameState, setGameState] = useState<'menu' | 'exploring' | 'threat-solving' | 'completed'>('menu');
   const [currentHabitat, setCurrentHabitat] = useState<Habitat | null>(null);
   const [discoveredThreats, setDiscoveredThreats] = useState<string[]>([]);
@@ -170,7 +168,21 @@ const HabitatExplorer = ({ onBack, userName = 'Player', onComplete }: HabitatExp
   const [selectedThreat, setSelectedThreat] = useState<Threat | null>(null);
   const [explorationProgress, setExplorationProgress] = useState(0);
   const [foundSpecies, setFoundSpecies] = useState<string[]>([]);
-
+  const [pointsUpdated, setPointsUpdated] = useState(false);
+  useEffect(() => {
+  if (gameState === 'completed' && !pointsUpdated) {
+    const ecoPoints = Math.floor(score / 3);
+    (async () => {
+      try {
+        await addPointsForUser(ecoPoints);
+        await onPointsUpdated();
+        setPointsUpdated(true);
+      } catch (err) {
+        console.error('EcoPoints update failed:', err);
+      }
+    })();
+  }
+}, [gameState, score, addPointsForUser, onPointsUpdated, pointsUpdated]);
   const startExploration = (habitat: Habitat) => {
     setCurrentHabitat(habitat);
     setGameState('exploring');
@@ -181,13 +193,10 @@ const HabitatExplorer = ({ onBack, userName = 'Player', onComplete }: HabitatExp
     setExplorationProgress(0);
     setStartTime(Date.now());
   };
-
   const exploreArea = () => {
     if (!currentHabitat) return;
-
     const newProgress = Math.min(explorationProgress + 25, 100);
     setExplorationProgress(newProgress);
-
     // Discover threats as we explore
     if (newProgress >= 25 && discoveredThreats.length === 0) {
       setDiscoveredThreats([currentHabitat.threats[0].id]);
@@ -196,41 +205,34 @@ const HabitatExplorer = ({ onBack, userName = 'Player', onComplete }: HabitatExp
     } else if (newProgress >= 75 && discoveredThreats.length === 2) {
       setDiscoveredThreats([...discoveredThreats, currentHabitat.threats[2].id]);
     }
-
     // Discover species
     const speciesIndex = Math.floor(newProgress / 34);
     if (speciesIndex < currentHabitat.species.length && !foundSpecies.includes(currentHabitat.species[speciesIndex].id)) {
       setFoundSpecies([...foundSpecies, currentHabitat.species[speciesIndex].id]);
       setScore(prev => prev + 20); // Species discovery points
     }
-
     if (newProgress === 100) {
       // Exploration complete
       setTimeout(() => setGameState('threat-solving'), 1000);
     }
   };
-
   const solveThreat = (threat: Threat) => {
     if (!solvedThreats.includes(threat.id)) {
       setSolvedThreats([...solvedThreats, threat.id]);
       setScore(prev => prev + threat.points);
-      
       if (solvedThreats.length + 1 === currentHabitat?.threats.length) {
         setTimeout(() => completeGame(), 1500);
       }
     }
   };
-
   const completeGame = () => {
     const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
     const maxScore = currentHabitat ? 
       currentHabitat.threats.reduce((sum, threat) => sum + threat.points, 0) + 
       (currentHabitat.species.length * 20) : 0;
-    
     setGameState('completed');
     onComplete?.(score, maxScore, timeElapsed);
   };
-
   const resetGame = () => {
     setGameState('menu');
     setCurrentHabitat(null);
@@ -240,7 +242,6 @@ const HabitatExplorer = ({ onBack, userName = 'Player', onComplete }: HabitatExp
     setFoundSpecies([]);
     setExplorationProgress(0);
   };
-
   const getSeverityColor = (severity: string) => {
     switch (severity) {
       case 'low': return 'text-yellow-600 bg-yellow-100';
@@ -250,7 +251,6 @@ const HabitatExplorer = ({ onBack, userName = 'Player', onComplete }: HabitatExp
       default: return 'text-gray-600 bg-gray-100';
     }
   };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'safe': return 'text-green-600 bg-green-100';
@@ -291,7 +291,6 @@ const HabitatExplorer = ({ onBack, userName = 'Player', onComplete }: HabitatExp
               </p>
             </CardHeader>
           </Card>
-
           <div className="grid md:grid-cols-3 gap-6">
             {habitats.map((habitat) => (
               <Card 
@@ -305,7 +304,6 @@ const HabitatExplorer = ({ onBack, userName = 'Player', onComplete }: HabitatExp
                     <h3 className="text-xl text-green-800 mb-2">{habitat.name}</h3>
                     <p className="text-sm text-green-600 mb-4">{habitat.description}</p>
                   </div>
-
                   <div className="space-y-3">
                     <div>
                       <h4 className="text-sm text-green-800 mb-2">Wildlife:</h4>
@@ -317,7 +315,6 @@ const HabitatExplorer = ({ onBack, userName = 'Player', onComplete }: HabitatExp
                         ))}
                       </div>
                     </div>
-
                     <div>
                       <h4 className="text-sm text-green-800 mb-2">Major Threats:</h4>
                       <div className="text-xs text-green-600">
@@ -325,7 +322,6 @@ const HabitatExplorer = ({ onBack, userName = 'Player', onComplete }: HabitatExp
                       </div>
                     </div>
                   </div>
-
                   <Button className="w-full mt-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white">
                     Explore Habitat
                   </Button>
@@ -337,7 +333,6 @@ const HabitatExplorer = ({ onBack, userName = 'Player', onComplete }: HabitatExp
       </div>
     );
   }
-
   if (gameState === 'exploring' && currentHabitat) {
     return (
       <div className="relative min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4">
@@ -568,95 +563,89 @@ const HabitatExplorer = ({ onBack, userName = 'Player', onComplete }: HabitatExp
       </div>
     );
   }
-
-  if (gameState === 'completed') {
-    const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-    const maxScore = currentHabitat ? 
-      currentHabitat.threats.reduce((sum, threat) => sum + threat.points, 0) + 
-      (currentHabitat.species.length * 20) : 0;
-    const percentage = Math.round((score / maxScore) * 100);
-    const ecoPoints = Math.floor(score / 3);
-
-    return (
-      <div className="relative min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4">
-        <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />
-        
-        <div className="relative z-10 max-w-4xl mx-auto">
-          <Card className="bg-white/95 backdrop-blur-sm border-green-200 shadow-xl">
-            <CardHeader className="text-center">
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.2 }}
-                className="flex justify-center mb-4"
-              >
-                <div className="p-4 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full">
-                  <Award size={48} className="text-white" />
+if (gameState === 'completed' && currentHabitat) {
+  const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+  const maxScore = currentHabitat
+    ? currentHabitat.threats.reduce((sum, t) => sum + t.points, 0) + currentHabitat.species.length * 20
+    : 0;
+  const percentage = Math.round((score / maxScore) * 100);
+  const ecoPoints = Math.floor(score / 3);
+  return (
+    <div className="relative min-h-screen bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50 p-4">
+      <div className="absolute inset-0 bg-gradient-to-t from-green-100/20 to-transparent" />
+      <div className="relative z-10 max-w-4xl mx-auto">
+        <Card className="bg-white/95 backdrop-blur-sm border-green-200 shadow-xl">
+          <CardHeader className="text-center">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.2 }}
+              className="flex justify-center mb-4"
+            >
+              <div className="p-4 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full">
+                <Award size={48} className="text-white" />
+              </div>
+            </motion.div>
+            <CardTitle className="text-3xl text-green-800 mb-2">Mission Complete!</CardTitle>
+            <p className="text-green-700">
+              Excellent work exploring {currentHabitat.name} and implementing conservation solutions, {userName}!
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-green-100 to-emerald-100 rounded-lg p-4">
+                  <div className="text-2xl text-green-800 mb-1">{score}/{maxScore}</div>
+                  <div className="text-green-600">Final Score ({percentage}%)</div>
                 </div>
-              </motion.div>
-              <CardTitle className="text-3xl text-green-800 mb-2">Mission Complete!</CardTitle>
+                <div className="bg-gradient-to-r from-blue-100 to-cyan-100 rounded-lg p-4">
+                  <div className="text-2xl text-blue-800 mb-1">{foundSpecies.length}/{currentHabitat.species.length}</div>
+                  <div className="text-blue-600">Species Discovered</div>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div className="bg-gradient-to-r from-orange-100 to-red-100 rounded-lg p-4">
+                  <div className="text-2xl text-orange-800 mb-1">{solvedThreats.length}/{currentHabitat.threats.length}</div>
+                  <div className="text-orange-600">Threats Addressed</div>
+                </div>
+                <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-lg p-4">
+                  <div className="text-2xl text-yellow-800 mb-1">+{ecoPoints}</div>
+                  <div className="text-yellow-600">Eco Points Earned</div>
+                </div>
+              </div>
+            </div>
+            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-6">
+              <h4 className="text-green-800 mb-3">Conservation Impact:</h4>
               <p className="text-green-700">
-                Excellent work exploring {currentHabitat?.name} and implementing conservation solutions, {userName}!
+                By exploring habitats and understanding their threats, you're learning how to make a real difference 
+                in conservation. Every action, from reducing plastic use to supporting sustainable practices, 
+                helps protect these precious ecosystems for future generations!
               </p>
-            </CardHeader>
+            </div>
 
-            <CardContent className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="bg-gradient-to-r from-green-100 to-emerald-100 rounded-lg p-4">
-                    <div className="text-2xl text-green-800 mb-1">{score}/{maxScore}</div>
-                    <div className="text-green-600">Final Score ({percentage}%)</div>
-                  </div>
-                  <div className="bg-gradient-to-r from-blue-100 to-cyan-100 rounded-lg p-4">
-                    <div className="text-2xl text-blue-800 mb-1">{foundSpecies.length}/{currentHabitat?.species.length}</div>
-                    <div className="text-blue-600">Species Discovered</div>
-                  </div>
-                </div>
-                <div className="space-y-4">
-                  <div className="bg-gradient-to-r from-orange-100 to-red-100 rounded-lg p-4">
-                    <div className="text-2xl text-orange-800 mb-1">{solvedThreats.length}/{currentHabitat?.threats.length}</div>
-                    <div className="text-orange-600">Threats Addressed</div>
-                  </div>
-                  <div className="bg-gradient-to-r from-yellow-100 to-orange-100 rounded-lg p-4">
-                    <div className="text-2xl text-yellow-800 mb-1">+{ecoPoints}</div>
-                    <div className="text-yellow-600">Eco Points Earned</div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-6">
-                <h4 className="text-green-800 mb-3">Conservation Impact:</h4>
-                <p className="text-green-700">
-                  By exploring habitats and understanding their threats, you're learning how to make a real difference 
-                  in conservation. Every action, from reducing plastic use to supporting sustainable practices, 
-                  helps protect these precious ecosystems for future generations!
-                </p>
-              </div>
-
-              <div className="flex justify-center gap-4">
-                <Button
-                  onClick={resetGame}
-                  className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-8"
-                >
-                  <RotateCcw size={20} className="mr-2" />
-                  Explore Another Habitat
-                </Button>
-                <Button
-                  onClick={onBack}
-                  variant="outline"
-                  className="border-green-300 text-green-700 hover:bg-green-50 px-8"
-                >
-                  Back to Lessons
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+            <div className="flex justify-center gap-4">
+              <Button
+                onClick={resetGame}
+                className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white px-8"
+              >
+                <RotateCcw size={20} className="mr-2" />
+                Explore Another Habitat
+              </Button>
+              <Button
+                onClick={onBack}
+                variant="outline"
+                className="border-green-300 text-green-700 hover:bg-green-50 px-8"
+              >
+                Back to Lessons
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
-    );
-  }
-
+    </div>
+  );
+}
   return null;
 };
-
 export default HabitatExplorer;
+
