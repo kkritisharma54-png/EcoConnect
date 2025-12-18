@@ -375,7 +375,7 @@ const fetchPoints = useCallback(async () => {
     case 'water-sim':
       return <WaterUsageSimulator onComplete={addPointsForUser} {...commonProps} />;
     case 'leak-puzzle':
-      return <LeakDetectionPuzzle onComplete={addPointsForUser} {...commonProps} />;
+      return <LeakDetectionPuzzle {...commonProps} />;
     case 'water-quiz':
       return <WaterConservationQuiz
         onComplete={addPointsForUser}

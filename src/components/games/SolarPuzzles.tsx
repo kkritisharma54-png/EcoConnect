@@ -4,13 +4,13 @@ import { Sun, Zap, Cloud, Award, RotateCcw, CheckCircle, Move } from 'lucide-rea
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Slider } from '../ui/slider';
-
 interface SolarPuzzlesProps {
-  onComplete?: (score: number) => void;
   onBack: () => void;
   userName?: string;
+  onPointsUpdated: () => Promise<void>;
+  addPointsForUser: (points: number) => Promise<void>;
+  onComplete?: (score: number) => void;
 }
-
 interface Panel {
   id: string;
   x: number;
@@ -19,8 +19,7 @@ interface Panel {
   shaded: boolean;
   efficiency: number;
 }
-
-const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
+const SolarPuzzles = ({ onBack,userName,onPointsUpdated,addPointsForUser,onComplete }: SolarPuzzlesProps) => {
   const [currentPuzzle, setCurrentPuzzle] = useState(1);
   const [score, setScore] = useState(0);
   const [gameComplete, setGameComplete] = useState(false);
@@ -29,17 +28,29 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
   const [weatherCondition, setWeatherCondition] = useState<'sunny' | 'cloudy' | 'rainy'>('sunny');
   const [totalEfficiency, setTotalEfficiency] = useState(0);
   const [puzzleComplete, setPuzzleComplete] = useState(false);
-
+  const [pointsUpdated, setPointsUpdated] = useState(false);
   const weatherEffects = {
     sunny: { multiplier: 1, icon: '☀️', color: 'text-yellow-500' },
     cloudy: { multiplier: 0.6, icon: '☁️', color: 'text-gray-500' },
     rainy: { multiplier: 0.3, icon: '🌧️', color: 'text-blue-500' }
   };
-
+  useEffect(() => {
+  if (gameComplete && !pointsUpdated) {
+    const ecoPoints = Math.floor(score / 8); 
+    (async () => {
+      try {
+        await addPointsForUser(ecoPoints);
+        await onPointsUpdated();
+        setPointsUpdated(true);
+      } catch (err) {
+        console.error('EcoPoints update failed:', err);
+      }
+    })();
+  }
+}, [gameComplete, score, addPointsForUser, onPointsUpdated, pointsUpdated]);
   useEffect(() => {
     initializePuzzle();
   }, [currentPuzzle]);
-
   const calculateEfficiency = (panel: Panel) => {
     const weather = weatherEffects[weatherCondition];
     const angleDiff = Math.abs(panel.angle - sunAngle);
@@ -47,7 +58,6 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
     const shadingPenalty = panel.shaded ? 0.2 : 1;
     return angleEfficiency * shadingPenalty * weather.multiplier;
   };
-
   useEffect(() => {
     if (panels.length > 0) {
       let total = 0;
@@ -55,14 +65,10 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
       
       panels.forEach(panel => {
         total += calculateEfficiency(panel);
-      });
-      
+      });      
       setTotalEfficiency(total);
-      
-      // Check if puzzle is complete (>80% efficiency)
       const maxPossible = panels.length * 100 * weather.multiplier;
-      const efficiencyPercentage = (total / maxPossible) * 100;
-      
+      const efficiencyPercentage = (total / maxPossible) * 100;     
       if (efficiencyPercentage > 80 && !puzzleComplete) {
         setPuzzleComplete(true);
         const puzzleScore = Math.round(efficiencyPercentage) * (currentPuzzle + 1);
@@ -70,7 +76,6 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
       }
     }
   }, [panels, sunAngle, weatherCondition, puzzleComplete]);
-
   const initializePuzzle = () => {
     const newPanels: Panel[] = [];
     const puzzleConfigs = {
@@ -78,9 +83,7 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
       2: { count: 6, obstacles: 2 }, // With shading
       3: { count: 8, obstacles: 3 }  // Complex optimization
     };
-
-    const config = puzzleConfigs[currentPuzzle as keyof typeof puzzleConfigs];
-    
+    const config = puzzleConfigs[currentPuzzle as keyof typeof puzzleConfigs];   
     for (let i = 0; i < config.count; i++) {
       newPanels.push({
         id: `panel-${i}`,
@@ -90,24 +93,20 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
         shaded: i < config.obstacles, // First few panels start shaded
         efficiency: 0
       });
-    }
-    
+    }    
     setPanels(newPanels);
     setPuzzleComplete(false);
   };
-
   const updatePanelAngle = (panelId: string, newAngle: number) => {
     setPanels(prev => prev.map(panel => 
       panel.id === panelId ? { ...panel, angle: newAngle } : panel
     ));
   };
-
   const togglePanelShading = (panelId: string) => {
     setPanels(prev => prev.map(panel => 
       panel.id === panelId ? { ...panel, shaded: !panel.shaded } : panel
     ));
   };
-
   const nextPuzzle = () => {
     if (currentPuzzle < 3) {
       setCurrentPuzzle(prev => prev + 1);
@@ -116,22 +115,20 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
       setTimeout(() => onComplete?.(score), 2000);
     }
   };
-
   const resetGame = () => {
     setCurrentPuzzle(1);
     setScore(0);
     setGameComplete(false);
     setSunAngle(45);
     setWeatherCondition('sunny');
+    setPointsUpdated(false);
     initializePuzzle();
   };
-
   const getEfficiencyColor = (efficiency: number) => {
     if (efficiency > 80) return 'text-green-600';
     if (efficiency > 50) return 'text-yellow-600';
     return 'text-red-600';
   };
-
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-5xl bg-white max-h-[90vh] overflow-y-auto">
@@ -149,7 +146,6 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
             </Button>
           </div>
         </CardHeader>
-
         <CardContent className="p-6">
           <AnimatePresence mode="wait">
             {!gameComplete ? (
@@ -179,7 +175,6 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
                       <div className="text-sm text-gray-600 text-center">{sunAngle}°</div>
                     </CardContent>
                   </Card>
-
                   <Card className="bg-blue-50">
                     <CardContent className="p-4">
                       <div className="flex items-center gap-2 mb-3">
@@ -200,7 +195,6 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
                       </div>
                     </CardContent>
                   </Card>
-
                   <Card className={`${puzzleComplete ? 'bg-green-50' : 'bg-gray-50'}`}>
                     <CardContent className="p-4 text-center">
                       <Zap className={`mx-auto mb-2 ${puzzleComplete ? 'text-green-600' : 'text-gray-600'}`} size={20} />
@@ -211,7 +205,6 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
                     </CardContent>
                   </Card>
                 </div>
-
                 {/* Solar Farm Display */}
                 <Card className="bg-gradient-to-b from-sky-100 to-green-100">
                   <CardContent className="p-4">
@@ -228,7 +221,6 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
                       >
                         <Sun size={32} />
                       </motion.div>
-
                       {/* Weather overlay */}
                       {weatherCondition !== 'sunny' && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -237,7 +229,6 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
                           </div>
                         </div>
                       )}
-
                       {/* Solar Panels */}
                       {panels.map((panel) => (
                         <div
@@ -257,15 +248,13 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
                             }`}
                             whileHover={{ scale: 1.1 }}
                             onClick={() => togglePanelShading(panel.id)}
-                          />
-                          
+                          />                          
                           {/* Efficiency indicator */}
                           <div className={`absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-bold ${
                             getEfficiencyColor(calculateEfficiency(panel))
                           }`}>
                             {Math.round(calculateEfficiency(panel))}%
-                          </div>
-                          
+                          </div>                         
                           {/* Angle controls */}
                           <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
                             <div className="bg-white rounded px-2 py-1 shadow-lg">
@@ -282,7 +271,6 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
                         </div>
                       ))}
                     </div>
-
                     <div className="mt-4 text-sm text-gray-600 space-y-2">
                       <div>💡 <strong>Tips:</strong></div>
                       <div>• Click panels to remove/add shading (buildings, trees)</div>
@@ -292,12 +280,10 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
                     </div>
                   </CardContent>
                 </Card>
-
                 <div className="flex justify-between items-center">
                   <div className="text-sm text-gray-600">
                     Goal: Achieve 80%+ average efficiency to complete puzzle
-                  </div>
-                  
+                  </div>                  
                   {puzzleComplete && (
                     <Button 
                       onClick={nextPuzzle}
@@ -335,7 +321,6 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
                       </CardContent>
                     </Card>
                   </div>
-
                   <div className="bg-orange-50 p-4 rounded-lg">
                     <h4 className="font-medium text-orange-800 mb-2">☀️ Solar Energy Facts:</h4>
                     <ul className="text-sm text-orange-700 text-left space-y-1">
@@ -347,7 +332,6 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
                     </ul>
                   </div>
                 </div>
-
                 <div className="flex gap-4 justify-center">
                   <Button onClick={resetGame} variant="outline">
                     <RotateCcw size={16} className="mr-2" />
@@ -366,5 +350,4 @@ const SolarPuzzles = ({ onComplete, onBack, userName }: SolarPuzzlesProps) => {
     </div>
   );
 };
-
 export default SolarPuzzles;

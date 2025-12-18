@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Wrench, CheckCircle, Award, RotateCcw, Timer } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Progress } from '../ui/progress';
-
 interface LeakDetectionPuzzleProps {
-  onComplete: (score: number) => void;
   onBack: () => void;
+  userName: string;
+  onPointsUpdated: () => Promise<void>;
+  addPointsForUser: (points: number) => Promise<void>;
+  onComplete?: (score: number) => void;
 }
-
 interface Leak {
   id: string;
   x: number;
@@ -19,100 +20,107 @@ interface Leak {
   points: number;
   room: string;
 }
-
-const LeakDetectionPuzzle = ({ onComplete, onBack }: LeakDetectionPuzzleProps) => {
-  const [timeLeft, setTimeLeft] = useState(120); // 2 minutes
+const LeakDetectionPuzzle = ({
+  onBack,
+  onPointsUpdated,
+  addPointsForUser,
+  onComplete
+}: LeakDetectionPuzzleProps) => {
+  const [timeLeft, setTimeLeft] = useState(120);
   const [score, setScore] = useState(0);
   const [leaksFound, setLeaksFound] = useState(0);
   const [gameComplete, setGameComplete] = useState(false);
   const [currentRoom, setCurrentRoom] = useState('kitchen');
   const [showHint, setShowHint] = useState(false);
-
+  const [pointsUpdated, setPointsUpdated] = useState(false);
+  const finalScoreRef = useRef<number | null>(null);
   const rooms = [
     { id: 'kitchen', name: 'Kitchen', icon: '🍽️' },
     { id: 'bathroom', name: 'Bathroom', icon: '🚿' },
     { id: 'laundry', name: 'Laundry', icon: '👕' },
     { id: 'garden', name: 'Garden', icon: '🌱' }
   ];
-
   const [leaks, setLeaks] = useState<Leak[]>([
-    // Kitchen leaks
     { id: 'k1', x: 20, y: 30, severity: 'minor', fixed: false, points: 10, room: 'kitchen' },
     { id: 'k2', x: 70, y: 45, severity: 'major', fixed: false, points: 20, room: 'kitchen' },
-    
-    // Bathroom leaks
     { id: 'b1', x: 15, y: 60, severity: 'critical', fixed: false, points: 30, room: 'bathroom' },
     { id: 'b2', x: 80, y: 25, severity: 'minor', fixed: false, points: 10, room: 'bathroom' },
     { id: 'b3', x: 45, y: 70, severity: 'major', fixed: false, points: 20, room: 'bathroom' },
-    
-    // Laundry leaks
     { id: 'l1', x: 60, y: 40, severity: 'major', fixed: false, points: 20, room: 'laundry' },
-    
-    // Garden leaks
     { id: 'g1', x: 25, y: 50, severity: 'critical', fixed: false, points: 30, room: 'garden' },
     { id: 'g2', x: 75, y: 35, severity: 'minor', fixed: false, points: 10, room: 'garden' }
   ]);
-
   const totalLeaks = leaks.length;
-  const roomLeaks = leaks.filter(leak => leak.room === currentRoom);
-
+  const roomLeaks = leaks.filter(l => l.room === currentRoom);
   useEffect(() => {
     if (timeLeft > 0 && !gameComplete) {
-      const timer = setTimeout(() => setTimeLeft(timeLeft - 1), 1000);
+      const timer = setTimeout(() => setTimeLeft(t => t - 1), 1000);
       return () => clearTimeout(timer);
-    } else if (timeLeft === 0 || leaksFound === totalLeaks) {
-      setGameComplete(true);
-      setTimeout(() => onComplete(score), 2000);
     }
-  }, [timeLeft, gameComplete, leaksFound, totalLeaks, score, onComplete]);
+    if (!gameComplete && (timeLeft === 0 || leaksFound === totalLeaks)) {
+      setGameComplete(true);
+      finalScoreRef.current = score;
+      onComplete?.(score);
+    }
+  }, [timeLeft, leaksFound, gameComplete, score, totalLeaks, onComplete]);
+  const handleLeakClick = (id: string) => {
+  const leak = leaks.find(l => l.id === id);
+  if (!leak || leak.fixed) return;
 
-  const handleLeakClick = (leakId: string) => {
-    const leak = leaks.find(l => l.id === leakId);
-    if (!leak || leak.fixed) return;
+  const bonus = timeLeft > 90 ? 5 : 0;
+  const earnedPoints = leak.points + bonus;
 
-    // Fix the leak
-    setLeaks(prev => prev.map(l => 
-      l.id === leakId ? { ...l, fixed: true } : l
-    ));
-    
-    setScore(prev => prev + leak.points);
-    setLeaksFound(prev => prev + 1);
+  setLeaks(prev =>
+    prev.map(l => l.id === id ? { ...l, fixed: true } : l)
+  );
 
-    // Bonus points for speed
-    if (timeLeft > 90) {
-      setScore(prev => prev + 5); // Speed bonus
+  setScore(prev => prev + earnedPoints);
+
+  setLeaksFound(prev => {
+    const updated = prev + 1;
+
+    if (updated === totalLeaks) {
+      setGameComplete(true);
+      finalScoreRef.current = score + earnedPoints;
+      onComplete?.(score + earnedPoints);
+    }
+
+    return updated;
+  });
+};
+
+  const handleClaimRewards = async () => {
+    if (pointsUpdated) return;
+    const ecoPoints = finalScoreRef.current ?? score;
+    if (ecoPoints <= 0) return;
+    try {
+      await addPointsForUser(ecoPoints);
+      await onPointsUpdated();
+      setPointsUpdated(true);
+      onBack();
+    } catch (err) {
+      console.error('EcoPoints update failed:', err);
     }
   };
-
   const resetGame = () => {
     setTimeLeft(120);
     setScore(0);
     setLeaksFound(0);
     setGameComplete(false);
     setCurrentRoom('kitchen');
-    setLeaks(prev => prev.map(leak => ({ ...leak, fixed: false })));
+    setPointsUpdated(false);
+    finalScoreRef.current = null;
+    setLeaks(l => l.map(x => ({ ...x, fixed: false })));
   };
-
-  const getLeakColor = (severity: string, fixed: boolean) => {
-    if (fixed) return 'bg-green-500';
-    switch (severity) {
-      case 'minor': return 'bg-blue-400';
-      case 'major': return 'bg-yellow-500';
-      case 'critical': return 'bg-red-500';
-      default: return 'bg-blue-400';
-    }
-  };
-
-  const getRoomBackground = (roomId: string) => {
-    const backgrounds = {
+  const getLeakColor = (s: string, f: boolean) =>
+    f ? 'bg-green-500' : s === 'critical' ? 'bg-red-500' : s === 'major' ? 'bg-yellow-500' : 'bg-blue-400';
+  const getRoomBackground = (r: string) =>
+    ({
       kitchen: 'bg-gradient-to-br from-orange-100 to-yellow-100',
-      bathroom: 'bg-gradient-to-br from-blue-100 to-cyan-100', 
+      bathroom: 'bg-gradient-to-br from-blue-100 to-cyan-100',
       laundry: 'bg-gradient-to-br from-purple-100 to-pink-100',
       garden: 'bg-gradient-to-br from-green-100 to-emerald-100'
-    };
-    return backgrounds[roomId as keyof typeof backgrounds] || 'bg-gray-100';
-  };
-
+    }[r] ?? 'bg-gray-100');
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-6xl bg-white max-h-[90vh] overflow-y-auto">
@@ -130,7 +138,6 @@ const LeakDetectionPuzzle = ({ onComplete, onBack }: LeakDetectionPuzzleProps) =
             </Button>
           </div>
         </CardHeader>
-
         <CardContent className="p-6">
           <AnimatePresence mode="wait">
             {!gameComplete ? (
@@ -149,24 +156,21 @@ const LeakDetectionPuzzle = ({ onComplete, onBack }: LeakDetectionPuzzleProps) =
                       <div className="text-xl text-red-600">{Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}</div>
                       <div className="text-xs text-red-600">Time Left</div>
                     </CardContent>
-                  </Card>
-                  
+                  </Card>                  
                   <Card className="bg-green-50">
                     <CardContent className="p-3 text-center">
                       <CheckCircle className="text-green-600 mx-auto mb-1" size={20} />
                       <div className="text-xl text-green-600">{leaksFound}/{totalLeaks}</div>
                       <div className="text-xs text-green-600">Leaks Fixed</div>
                     </CardContent>
-                  </Card>
-                  
+                  </Card>                  
                   <Card className="bg-yellow-50">
                     <CardContent className="p-3 text-center">
                       <Award className="text-yellow-600 mx-auto mb-1" size={20} />
                       <div className="text-xl text-yellow-600">{score}</div>
                       <div className="text-xs text-yellow-600">Score</div>
                     </CardContent>
-                  </Card>
-                  
+                  </Card>                 
                   <Card className="bg-blue-50">
                     <CardContent className="p-3 text-center">
                       <Search className="text-blue-600 mx-auto mb-1" size={20} />
@@ -175,7 +179,6 @@ const LeakDetectionPuzzle = ({ onComplete, onBack }: LeakDetectionPuzzleProps) =
                     </CardContent>
                   </Card>
                 </div>
-
                 {/* Progress Bar */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
@@ -184,7 +187,6 @@ const LeakDetectionPuzzle = ({ onComplete, onBack }: LeakDetectionPuzzleProps) =
                   </div>
                   <Progress value={(leaksFound / totalLeaks) * 100} className="h-3" />
                 </div>
-
                 {/* Room Navigation */}
                 <div className="flex flex-wrap gap-2 justify-center">
                   {rooms.map((room) => {
@@ -207,7 +209,6 @@ const LeakDetectionPuzzle = ({ onComplete, onBack }: LeakDetectionPuzzleProps) =
                     );
                   })}
                 </div>
-
                 {/* Room Display */}
                 <Card className="relative">
                   <CardContent className="p-0">
@@ -223,7 +224,6 @@ const LeakDetectionPuzzle = ({ onComplete, onBack }: LeakDetectionPuzzleProps) =
                           </span>
                         </div>
                       </div>
-
                       {/* Leaks in current room */}
                       {roomLeaks.map((leak) => (
                         <motion.button
@@ -338,10 +338,13 @@ const LeakDetectionPuzzle = ({ onComplete, onBack }: LeakDetectionPuzzleProps) =
                     <RotateCcw size={16} className="mr-2" />
                     Play Again
                   </Button>
-                  <Button onClick={onBack} className="bg-blue-600 hover:bg-blue-700">
+                  <Button onClick={handleClaimRewards} className="bg-blue-600 hover:bg-blue-700">
                     <Wrench size={16} className="mr-2" />
                     Claim Rewards
                   </Button>
+                  <Button variant="outline" onClick={onBack}>
+  Exit
+</Button>
                 </div>
               </motion.div>
             )}
@@ -351,5 +354,4 @@ const LeakDetectionPuzzle = ({ onComplete, onBack }: LeakDetectionPuzzleProps) =
     </div>
   );
 };
-
 export default LeakDetectionPuzzle;
