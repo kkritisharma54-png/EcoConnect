@@ -386,7 +386,11 @@ const fetchPoints = useCallback(async () => {
     case 'solar-word-game':
       return <SolarWordGame {...commonProps} />;
     case 'compost-jar':
-      return <CompostJarProject onComplete={addPointsForUser} {...commonProps} />;
+      return <CompostJarProject  {...commonProps} onComplete={async (points) => {
+    await commonProps.addPointsForUser(points);
+    await commonProps.onPointsUpdated();
+    commonProps.onBack();
+  }}/>;
     case 'compost-hunt':
       return <CompostScavengerHunt {...commonProps} />;
     case 'species-memory':

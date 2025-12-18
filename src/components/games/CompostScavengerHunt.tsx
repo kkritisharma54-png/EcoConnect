@@ -5,12 +5,11 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
-import { supabase } from '../../supabaseClient';
 interface CompostScavengerHuntProps {
   onBack: () => void;
-  userId?: string;
-  userName?: string;
-  onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
+  userName: string;
+  onPointsUpdated: () => Promise<void>;
+  addPointsForUser: (points: number) => Promise<void>;
 }
 interface CompostItem {
   id: string;
@@ -158,7 +157,7 @@ const compostItems: CompostItem[] = [
     tips: 'Recycle separately from compost'
   }
 ];
-const CompostScavengerHunt = ({ onBack,userId ,userName = 'Player', onComplete }: CompostScavengerHuntProps) => {
+const CompostScavengerHunt = ({ onBack,userName,onPointsUpdated,addPointsForUser }: CompostScavengerHuntProps) => {
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'completed'>('menu');
   const [currentItems, setCurrentItems] = useState<CompostItem[]>([]);
   const [selectedItems, setSelectedItems] = useState<{[key: string]: 'greens' | 'browns' | 'not-compostable'}>({});
@@ -169,6 +168,7 @@ const CompostScavengerHunt = ({ onBack,userId ,userName = 'Player', onComplete }
   const [showResults, setShowResults] = useState(false);
   const [hintsUsed, setHintsUsed] = useState(0);
   const [maxHints] = useState(3);
+  const [pointsUpdated, setPointsUpdated] = useState(false);
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (gameState === 'playing' && timeRemaining > 0 && !gameCompleted) {
@@ -181,7 +181,6 @@ const CompostScavengerHunt = ({ onBack,userId ,userName = 'Player', onComplete }
     return () => clearTimeout(timer);
   }, [gameState, timeRemaining, gameCompleted]);
   const startGame = () => {
-    // Select 12 random items (4 greens, 4 browns, 4 not-compostable)
     const greens = compostItems.filter(item => item.category === 'greens');
     const browns = compostItems.filter(item => item.category === 'browns');
     const notCompostable = compostItems.filter(item => item.category === 'not-compostable');
@@ -211,63 +210,43 @@ const CompostScavengerHunt = ({ onBack,userId ,userName = 'Player', onComplete }
     calculateScore();
   };
   const calculateScore = () => {
-    let totalScore = 0;
-    currentItems.forEach(item => {
-      const selectedCategory = selectedItems[item.id];
-      if (selectedCategory === item.category) totalScore += item.points;
-      else if (selectedCategory) totalScore -= 5;
-    });
-    const timeBonus = Math.max(0, Math.floor((300 - (300 - timeRemaining)) / 10));
-    totalScore += timeBonus;
-    totalScore -= hintsUsed * 10;
-    setScore(Math.max(0, totalScore));
-    setTimeout(() => completeGame(), 2000);
-  };
-  const completeGame = async () => {
-  const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-  const maxScore = currentItems.reduce((sum, item) => sum + Math.abs(item.points), 0) + 50;  
+  let totalScore = 0;
+  currentItems.forEach(item => {
+    const selectedCategory = selectedItems[item.id];
+    if (selectedCategory === item.category) totalScore += item.points;
+    else if (selectedCategory) totalScore -= 5;
+  });
+  const timeBonus = Math.max(0, Math.floor(timeRemaining / 10));
+  totalScore += timeBonus;
+  totalScore -= hintsUsed * 10;
+  const finalScore = Math.max(0, totalScore);
+  setScore(finalScore);
+  setTimeout(() => completeGame(finalScore), 2000);
+};
+const completeGame = async (finalScore?: number) => {
+  if (pointsUpdated) return;
+
+  const ecoPoints = Math.floor((finalScore ?? score) / 5);
+
+  try {
+    await addPointsForUser(ecoPoints);
+    await onPointsUpdated();
+    setPointsUpdated(true);
+  } catch (err) {
+    console.error('EcoPoints update failed:', err);
+  }
+
   setGameCompleted(true);
   setGameState('completed');
-  if (userId) {
-    try {
-      const { error: insertError } = await supabase.from('eco_activity').insert([{
-        user_id: userId,
-        activity_type: 'Compost Scavenger Hunt',
-        points: score,
-        description: `Completed scavenger hunt with ${score} points in ${timeElapsed} seconds`
-      }]);
-      if (insertError) console.error('Supabase insert error:', insertError.message);
-      const { data: existingPoints, error: fetchError } = await supabase
-        .from('eco_points')
-        .select('points')
-        .eq('user_id', userId)
-        .single();
-      if (fetchError && (fetchError as any).code !== 'PGRST116') {
-        console.error(fetchError);
-      }
-      if (existingPoints) {
-        await supabase
-          .from('eco_points')
-          .update({ points: existingPoints.points + score })
-          .eq('user_id', userId);
-      } else {
-        await supabase
-          .from('eco_points')
-          .insert([{ user_id: userId, points: score }]);
-      }
-      console.log('✅ Points updated successfully');
-    } catch (err) {
-      console.error('Supabase exception:', err);
-    }
-  }
-  onComplete?.(score, maxScore, timeElapsed);
 };
+
   const resetGame = () => {
     setGameState('menu');
     setScore(0);
     setSelectedItems({});
     setCurrentItems([]);
     setShowResults(false);
+    setPointsUpdated(false);
   };
   const getHint = (item: CompostItem) => {
     if (hintsUsed < maxHints) {
