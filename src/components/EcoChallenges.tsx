@@ -30,7 +30,6 @@ import {
 import { Button } from './ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { Progress } from './ui/progress';
 import { Input } from './ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
 import { Textarea } from './ui/textarea';
@@ -43,23 +42,17 @@ interface EcoChallengesProps {
 }
 async function uploadProofFiles(userId: string, files: File[], activityId: number) {
   const uploadedUrls: string[] = [];
-
   for (const file of files) {
     const filePath = `${userId}/${activityId}/${Date.now()}-${file.name}`;
-
     const { error } = await supabase.storage
       .from('eco-proof')
       .upload(filePath, file);
-
     if (error) throw error;
-
     const { data } = supabase.storage
       .from('eco-proof')
       .getPublicUrl(filePath);
-
     uploadedUrls.push(data.publicUrl);
   }
-
   return uploadedUrls;
 }
 const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
@@ -75,38 +68,29 @@ const EcoChallenges = ({ onBack, userName }: EcoChallengesProps) => {
   const [loading, setLoading] = useState(true);
   const [userCompleted, setUserCompleted] = useState(0);
   const [userTotalPoints, setUserTotalPoints] = useState(0);
-  const [activeChallenges, setActiveChallenges] = useState(0);   // for this user
-const [totalParticipants, setTotalParticipants] = useState(0); // all users
-     // already have this
-
-
-
+  const [activeChallenges, setActiveChallenges] = useState(0); 
+const [totalParticipants, setTotalParticipants] = useState(0); 
   useEffect(() => {
     const timer = setTimeout(() => setShowFloatingElements(true), 300);
     return () => clearTimeout(timer);
   }, []);
-
   const categories = [
     { id: 'water', name: 'Water', icon: Droplets, color: 'text-blue-600', bgColor: 'bg-blue-100' },
     { id: 'energy', name: 'Energy', icon: Zap, color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
     { id: 'waste', name: 'Waste', icon: Recycle, color: 'text-green-600', bgColor: 'bg-green-100' },
     { id: 'nature', name: 'Nature', icon: TreePine, color: 'text-emerald-600', bgColor: 'bg-emerald-100' },
   ];
-
   useEffect(() => {
   const loadChallenges = async () => {
     setLoading(true);
-
     const { data, error } = await supabase
       .from('eco_challenge')
       .select('*')
       .eq('status', 'active')
       .order('deadline', { ascending: true });
-
     if (!error && data) setChallenges(data);
     setLoading(false);
   };
-
   loadChallenges();
 }, []);
    const loadStats = async () => {
@@ -115,35 +99,26 @@ const [totalParticipants, setTotalParticipants] = useState(0); // all users
     error: userError,
   } = await supabase.auth.getUser();
   if (userError || !user) return;
-
-  // user-specific activities
   const { data: userActivities, error: userActError } = await supabase
     .from('eco_activity')
     .select('challenge_id, points, status')
     .eq('user_id', user.id);
-
   if (!userActError && userActivities) {
     const completed = userActivities.filter(
       (a) => a.status === 'submitted' || a.status === 'approved'
     );
-
-    // distinct challenges this user has submitted for
     const challengeIds = new Set(completed.map((a) => a.challenge_id));
     setActiveChallenges(challengeIds.size);
     setUserCompleted(challengeIds.size);
-
     const sumPoints = completed.reduce(
       (sum, a) => sum + (a.points || 0),
       0
     );
     setUserTotalPoints(sumPoints);
   }
-
-  // global participants (unique users with at least one submission)
   const { data: allActivities, error: allActError } = await supabase
     .from('eco_activity')
     .select('user_id, status');
-
   if (!allActError && allActivities) {
     const usersWithSubmissions = new Set(
       allActivities
@@ -156,8 +131,6 @@ const [totalParticipants, setTotalParticipants] = useState(0); // all users
 useEffect(() => {
   loadStats();
 }, []);
-
-  // Filter challenges
   const filteredChallenges = challenges.filter(challenge => {
     const matchesCategory = selectedCategory === 'all' || challenge.category === selectedCategory;
     const matchesDifficulty = selectedDifficulty === 'all' || challenge.difficulty === selectedDifficulty;
@@ -165,14 +138,6 @@ useEffect(() => {
                          challenge.description.toLowerCase().includes(searchTerm.toLowerCase());
     return matchesCategory && matchesDifficulty && matchesSearch;
   });
-
-  // Statistics
-//   const activeChallenges = challenges.filter(c => c.status === 'active').length;
-// const totalParticipants = challenges.reduce((sum, c) => sum + c.participants, 0);
-// const totalPoints = challenges.reduce((sum, c) => sum + c.points, 0);
-
-
-  // Floating nature elements
   const floatingElements = [
     { Icon: Leaf, position: { top: '8%', left: '3%' }, delay: 0.2 },
     { Icon: TreePine, position: { top: '12%', right: '5%' }, delay: 0.4 },
@@ -181,7 +146,6 @@ useEffect(() => {
     { Icon: Wind, position: { bottom: '25%', left: '4%' }, delay: 1.0 },
     { Icon: Flower, position: { bottom: '40%', right: '6%' }, delay: 1.2 },
   ];
-
   const floatVariants = {
     animate: {
       y: [0, -8, 0],
@@ -194,7 +158,6 @@ useEffect(() => {
       }
     }
   };
-
   const containerVariants = {
     hidden: { opacity: 0 },
     visible: {
@@ -205,7 +168,6 @@ useEffect(() => {
       }
     }
   };
-
   const itemVariants = {
     hidden: { opacity: 0, y: 20 },
     visible: {
@@ -214,7 +176,6 @@ useEffect(() => {
       transition: { duration: 0.5 }
     }
   };
-
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
       case 'beginner': return 'bg-green-100 text-green-800';
@@ -223,7 +184,6 @@ useEffect(() => {
       default: return 'bg-slate-100 text-slate-800';
     }
   };
-
   const getDaysLeft = (deadline: string) => {
     const today = new Date();
     const deadlineDate = new Date(deadline);
@@ -231,19 +191,15 @@ useEffect(() => {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
-
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files || []);
     setUploadedFiles(prev => [...prev, ...files]);
   };
-
   const removeFile = (index: number) => {
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
   };
-
   const handleSubmitProof = async () => {
   if (!selectedChallenge) return;
-
   const {
     data: { user },
     error: userError,
@@ -252,8 +208,6 @@ useEffect(() => {
     console.error('No user', userError);
     return;
   }
-
-  // 1) create eco_activity row
   const { data: activity, error: activityError } = await supabase
     .from('eco_activity')
     .insert({
@@ -267,43 +221,31 @@ useEffect(() => {
     })
     .select('id')
     .single();
-
   if (activityError || !activity) {
     console.error('Activity insert error', activityError);
     return;
   }
-
   const activityId = activity.id;
-
-  // 2) upload files to Storage
   let proofUrls: string[] = [];
   if (uploadedFiles.length > 0) {
     proofUrls = await uploadProofFiles(user.id, uploadedFiles, activityId);
   }
-
-  // 3) store URLs in eco_activity
   if (proofUrls.length > 0) {
     const { error: updateError } = await supabase
       .from('eco_activity')
       .update({ proof_urls: proofUrls })
       .eq('id', activityId);
-
     if (updateError) {
       console.error('Update proof URLs error', updateError);
       return;
     }
   }
-
-  // 4) reset UI
   setUploadedFiles([]);
   setSubmissionText('');
   setLocation('');
   setSelectedChallenge(null);
-
   await loadStats();
-
 };
-
   if (loading) {
     return (
       <div className="p-8 text-center text-slate-600">
@@ -321,7 +263,6 @@ useEffect(() => {
           className="w-full h-full object-cover opacity-5"
         />
       </div>
-
       {/* Floating Nature Elements */}
       {showFloatingElements && floatingElements.map(({ Icon, position, delay }, index) => (
         <motion.div
@@ -337,7 +278,6 @@ useEffect(() => {
           </motion.div>
         </motion.div>
       ))}
-
       <div className="relative z-10 max-w-7xl mx-auto">
         {/* Header */}
         <motion.div
@@ -354,8 +294,7 @@ useEffect(() => {
             >
               <ArrowLeft size={20} />
               Back
-            </Button>
-            
+            </Button>            
             <div className="flex items-center gap-3">
               <motion.div
                 animate={{ rotate: [0, 360] }}
@@ -370,7 +309,6 @@ useEffect(() => {
             </div>
           </div>
         </motion.div>
-
         {/* Stats Overview */}
         <motion.div
           className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8"
@@ -386,8 +324,7 @@ useEffect(() => {
                 <div className="text-sm text-slate-600">Active Challenges</div>
               </CardContent>
             </Card>
-          </motion.div>
-          
+          </motion.div>          
           <motion.div variants={itemVariants}>
             <Card className="bg-white/80 backdrop-blur-sm border-emerald-200">
               <CardContent className="p-4 text-center">
@@ -396,8 +333,7 @@ useEffect(() => {
                 <div className="text-sm text-slate-600">Participants</div>
               </CardContent>
             </Card>
-          </motion.div>
-          
+          </motion.div>          
           <motion.div variants={itemVariants}>
             <Card className="bg-white/80 backdrop-blur-sm border-emerald-200">
               <CardContent className="p-4 text-center">
@@ -406,20 +342,17 @@ useEffect(() => {
                 <div className="text-sm text-slate-600">Total Points</div>
               </CardContent>
             </Card>
-          </motion.div>
-          
+          </motion.div>         
           <motion.div variants={itemVariants}>
             <Card className="bg-white/80 backdrop-blur-sm border-emerald-200">
               <CardContent className="p-4 text-center">
                 <CheckCircle className="text-green-600 mx-auto mb-2" size={24} />
                 <div className="text-xl text-slate-800">{userCompleted}</div>
                 <div className="text-sm text-slate-600">Your Completed</div>
-
               </CardContent>
             </Card>
           </motion.div>
         </motion.div>
-
         {/* Filters and Search */}
         <motion.div
           className="flex flex-col md:flex-row gap-4 mb-8"
@@ -437,8 +370,7 @@ useEffect(() => {
                 className="pl-10 border-emerald-200 focus:border-emerald-400 focus:ring-emerald-200"
               />
             </div>
-          </div>
-          
+          </div>          
           <Select value={selectedCategory} onValueChange={setSelectedCategory}>
             <SelectTrigger className="w-48 border-emerald-200">
               <SelectValue placeholder="Category" />
@@ -451,8 +383,7 @@ useEffect(() => {
                 </SelectItem>
               ))}
             </SelectContent>
-          </Select>
-          
+          </Select>          
           <Select value={selectedDifficulty} onValueChange={setSelectedDifficulty}>
             <SelectTrigger className="w-48 border-emerald-200">
               <SelectValue placeholder="Difficulty" />
@@ -465,7 +396,6 @@ useEffect(() => {
             </SelectContent>
           </Select>
         </motion.div>
-
         {/* Category Filters */}
         <motion.div
           className="flex flex-wrap gap-3 mb-8"
@@ -501,7 +431,6 @@ useEffect(() => {
             );
           })}
         </motion.div>
-
         {/* Challenges Grid */}
         <motion.div
           className="grid grid-cols-1 lg:grid-cols-2 gap-6"
@@ -543,17 +472,14 @@ useEffect(() => {
                         {daysLeft} days left
                       </Badge>
                     </div>
-                  </div>
-                  
+                  </div>                  
                   <CardContent className="p-6">
                     <div className="flex items-center justify-between mb-3">
                       <h3 className="text-slate-800">{challenge.title}</h3>
-                    </div>
-                    
+                    </div>                   
                     <p className="text-slate-600 text-sm mb-4 line-clamp-2">
                       {challenge.description}
-                    </p>
-                    
+                    </p>                    
                     <div className="flex items-center justify-between text-sm text-slate-600 mb-4">
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1">
@@ -573,8 +499,7 @@ useEffect(() => {
                         <Award size={14} />
                         +{challenge.points} pts
                       </div>
-                    </div>
-                    
+                    </div>                    
                     <div className="space-y-3">
                       <div>
                         <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Requirements</div>
@@ -590,8 +515,7 @@ useEffect(() => {
                             </Badge>
                           )}
                         </div>
-                      </div>
-                      
+                      </div>                      
                       <div>
                         <div className="text-xs text-slate-500 uppercase tracking-wider mb-2">Tags</div>
                         <div className="flex flex-wrap gap-2">
@@ -608,8 +532,7 @@ useEffect(() => {
                         </div>
                       </div>
                     </div>
-                  </CardContent>
-                  
+                  </CardContent>                 
                   <div className="px-6 pb-6 flex gap-3">
                     <Dialog>
                       <DialogTrigger asChild>
@@ -626,8 +549,7 @@ useEffect(() => {
                           <DialogDescription>
                             View detailed information about this environmental challenge including steps, requirements, and instructions to participate.
                           </DialogDescription>
-                        </DialogHeader>
-                        
+                        </DialogHeader>                       
                         <div className="space-y-6">
                           {challenge.image_url && (
                             <ImageWithFallback
@@ -635,13 +557,11 @@ useEffect(() => {
                               alt={challenge.title}
                               className="w-full h-64 object-cover rounded-lg"
                             />
-                          )}
-                          
+                          )}                         
                           <div>
                             <h4 className="text-emerald-800 mb-2">Description</h4>
                             <p className="text-slate-600">{challenge.description}</p>
-                          </div>
-                          
+                          </div>                          
                           <div>
                             <h4 className="text-emerald-800 mb-3">Step-by-Step Instructions</h4>
                             <div className="space-y-3">
@@ -654,8 +574,7 @@ useEffect(() => {
                                 </div>
                               ))}
                             </div>
-                          </div>
-                          
+                          </div>                         
                           <div>
                             <h4 className="text-emerald-800 mb-2">Requirements</h4>
                             <div className="space-y-2">
@@ -666,8 +585,7 @@ useEffect(() => {
                                 </div>
                               ))}
                             </div>
-                          </div>
-                          
+                          </div>                         
                           <div className="flex gap-3">
                             <Button 
                               className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white"
@@ -678,8 +596,7 @@ useEffect(() => {
                           </div>
                         </div>
                       </DialogContent>
-                    </Dialog>
-                    
+                    </Dialog>                    
                     <Dialog
   open={selectedChallenge?.id === challenge.id}
   onOpenChange={(open: any) => !open && setSelectedChallenge(null)}
@@ -693,7 +610,6 @@ useEffect(() => {
       <Upload size={16} className="ml-2" />
     </Button>
   </DialogTrigger>
-
   <DialogContent className="max-w-2xl">
     <DialogHeader>
       <DialogTitle className="flex items-center gap-3">
@@ -701,7 +617,6 @@ useEffect(() => {
         Submit Proof for: {selectedChallenge?.title}
       </DialogTitle>
     </DialogHeader>
-
     <div className="space-y-6">
       <div>
         <label className="text-emerald-800 mb-2 block">Upload Photos/Videos</label>
@@ -720,7 +635,6 @@ useEffect(() => {
             <p className="text-slate-500 text-sm">PNG, JPG, MP4 up to 10MB each</p>
           </label>
         </div>
-
         {uploadedFiles.length > 0 && (
           <div className="mt-4 space-y-2">
             {uploadedFiles.map((file, index) => (
@@ -749,7 +663,6 @@ useEffect(() => {
           </div>
         )}
       </div>
-
       <div>
         <label className="text-emerald-800 mb-2 block">Location (optional)</label>
         <div className="relative">
@@ -765,7 +678,6 @@ useEffect(() => {
           />
         </div>
       </div>
-
       <div>
         <label className="text-emerald-800 mb-2 block">Description</label>
         <Textarea
@@ -776,7 +688,6 @@ useEffect(() => {
           rows={4}
         />
       </div>
-
       <div className="flex gap-3">
         <Button
           variant="outline"
@@ -803,7 +714,6 @@ useEffect(() => {
             );
           })}
         </motion.div>
-
         {filteredChallenges.length === 0 && (
           <motion.div
             className="text-center py-12"
@@ -820,5 +730,4 @@ useEffect(() => {
     </div>
   );
 };
-
 export default EcoChallenges;
