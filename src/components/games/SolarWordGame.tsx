@@ -8,6 +8,8 @@ import { Progress } from '../ui/progress';
 interface SolarWordGameProps {
   onBack: () => void;
   userName?: string;
+  onPointsUpdated: () => Promise<void>;
+  addPointsForUser: (points: number) => Promise<void>;
   onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
 }
 interface WordClue {
@@ -16,7 +18,6 @@ interface WordClue {
   category: 'basic' | 'intermediate' | 'advanced';
   points: number;
 }
-
 const wordDatabase: WordClue[] = [
   // Basic Level
   { word: 'SOLAR', clue: 'Energy from the sun', category: 'basic', points: 10 },
@@ -24,7 +25,6 @@ const wordDatabase: WordClue[] = [
   { word: 'BATTERY', clue: 'Device that stores energy', category: 'basic', points: 15 },
   { word: 'ENERGY', clue: 'Power to do work', category: 'basic', points: 10 },
   { word: 'LIGHT', clue: 'Visible radiation from the sun', category: 'basic', points: 10 },
-  
   // Intermediate Level
   { word: 'PHOTOVOLTAIC', clue: 'Technology that converts light to electricity', category: 'intermediate', points: 25 },
   { word: 'INVERTER', clue: 'Device that converts DC to AC power', category: 'intermediate', points: 20 },
@@ -39,8 +39,7 @@ const wordDatabase: WordClue[] = [
   { word: 'CRYSTALLINE', clue: 'Type of silicon solar cell structure', category: 'advanced', points: 30 },
   { word: 'MAXIMUM POWER POINT', clue: 'Optimal operating point of a solar panel', category: 'advanced', points: 40 }
 ];
-
-const SolarWordGame = ({ onBack, userName = 'Player', onComplete }: SolarWordGameProps) => {
+const SolarWordGame = ({ onBack, userName = 'Player',onPointsUpdated,addPointsForUser, onComplete }: SolarWordGameProps) => {
   const [gameState, setGameState] = useState<'menu' | 'playing' | 'completed'>('menu');
   const [currentLevel, setCurrentLevel] = useState<'basic' | 'intermediate' | 'advanced'>('basic');
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
@@ -48,13 +47,13 @@ const SolarWordGame = ({ onBack, userName = 'Player', onComplete }: SolarWordGam
   const [correctAnswers, setCorrectAnswers] = useState(0);
   const [score, setScore] = useState(0);
   const [startTime, setStartTime] = useState<number>(0);
+  const [pointsUpdated, setPointsUpdated] = useState(false);
   const [hints, setHints] = useState(3);
   const [showHint, setShowHint] = useState(false);
   const [streak, setStreak] = useState(0);
   const [maxStreak, setMaxStreak] = useState(0);
   const [currentWords, setCurrentWords] = useState<WordClue[]>([]);
   const [feedback, setFeedback] = useState<{ type: 'correct' | 'incorrect' | null; message: string }>({ type: null, message: '' });
-
   useEffect(() => {
     if (gameState === 'playing') {
       const levelWords = wordDatabase.filter(w => w.category === currentLevel);
@@ -64,7 +63,21 @@ const SolarWordGame = ({ onBack, userName = 'Player', onComplete }: SolarWordGam
       setStartTime(Date.now());
     }
   }, [gameState, currentLevel]);
+useEffect(() => {
+  if (gameState === 'completed' && !pointsUpdated) {
+    const ecoPoints = Math.floor(score / 10);
 
+    (async () => {
+      try {
+        await addPointsForUser(ecoPoints);
+        await onPointsUpdated();
+        setPointsUpdated(true);
+      } catch (err) {
+        console.error('EcoPoints update failed:', err);
+      }
+    })();
+  }
+}, [gameState, score, addPointsForUser, onPointsUpdated, pointsUpdated]);
   const startGame = (level: 'basic' | 'intermediate' | 'advanced') => {
     setCurrentLevel(level);
     setGameState('playing');
@@ -77,13 +90,10 @@ const SolarWordGame = ({ onBack, userName = 'Player', onComplete }: SolarWordGam
     setShowHint(false);
     setFeedback({ type: null, message: '' });
   };
-
   const submitAnswer = () => {
     if (!userAnswer.trim()) return;
-
     const currentWord = currentWords[currentWordIndex];
     const isCorrect = userAnswer.toUpperCase().trim() === currentWord.word.toUpperCase();
-
     if (isCorrect) {
       const points = currentWord.points + (streak >= 3 ? Math.floor(currentWord.points * 0.5) : 0);
       setScore(prev => prev + points);
@@ -104,7 +114,6 @@ const SolarWordGame = ({ onBack, userName = 'Player', onComplete }: SolarWordGam
         message: `Incorrect. The answer was: ${currentWord.word}` 
       });
     }
-
     setTimeout(() => {
       if (currentWordIndex < currentWords.length - 1) {
         setCurrentWordIndex(prev => prev + 1);
@@ -116,22 +125,18 @@ const SolarWordGame = ({ onBack, userName = 'Player', onComplete }: SolarWordGam
       }
     }, 2000);
   };
-
   const useHint = () => {
     if (hints > 0) {
       setHints(prev => prev - 1);
       setShowHint(true);
     }
   };
-
   const completeGame = () => {
     const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
     const maxScore = currentWords.reduce((sum, word) => sum + word.points, 0);
-    
     setGameState('completed');
     onComplete?.(score, maxScore, timeElapsed);
   };
-
   const resetGame = () => {
     setGameState('menu');
     setScore(0);
@@ -140,6 +145,7 @@ const SolarWordGame = ({ onBack, userName = 'Player', onComplete }: SolarWordGam
     setUserAnswer('');
     setShowHint(false);
     setFeedback({ type: null, message: '' });
+    setPointsUpdated(false);
   };
 
   const currentWord = currentWords[currentWordIndex];
