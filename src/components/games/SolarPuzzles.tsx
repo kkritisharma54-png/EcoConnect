@@ -76,6 +76,16 @@ const SolarPuzzles = ({ onBack,userName,onPointsUpdated,addPointsForUser,onCompl
       }
     }
   }, [panels, sunAngle, weatherCondition, puzzleComplete]);
+  const nextPuzzle = () => {
+  if (currentPuzzle < 3) {
+    setCurrentPuzzle(prev => prev + 1);
+  } else {
+    setGameComplete(true);
+    const ecoPoints = Math.floor(score / 8); // same formula you were using
+    setTimeout(() => onComplete?.(ecoPoints), 2000);
+  }
+};
+
   const initializePuzzle = () => {
     const newPanels: Panel[] = [];
     const puzzleConfigs = {
@@ -107,14 +117,7 @@ const SolarPuzzles = ({ onBack,userName,onPointsUpdated,addPointsForUser,onCompl
       panel.id === panelId ? { ...panel, shaded: !panel.shaded } : panel
     ));
   };
-  const nextPuzzle = () => {
-    if (currentPuzzle < 3) {
-      setCurrentPuzzle(prev => prev + 1);
-    } else {
-      setGameComplete(true);
-      setTimeout(() => onComplete?.(score), 2000);
-    }
-  };
+
   const resetGame = () => {
     setCurrentPuzzle(1);
     setScore(0);

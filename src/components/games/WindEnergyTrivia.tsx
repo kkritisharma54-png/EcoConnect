@@ -164,6 +164,7 @@ interface WindEnergyTriviaProps {
   userName: string;
   onPointsUpdated: () => Promise<void>;
   addPointsForUser: (points: number) => Promise<void>;
+  onComplete?: (points: number) => void;
 }
 
 const WindEnergyTrivia = ({
@@ -171,6 +172,7 @@ const WindEnergyTrivia = ({
   userName,
   onPointsUpdated,
   addPointsForUser,
+  onComplete,
 }: WindEnergyTriviaProps) => {
   const [gameState, setGameState] = useState<'menu' | 'team-select' | 'playing' | 'completed'>('menu');
   const [selectedTeam, setSelectedTeam] = useState<Team | null>(null);
@@ -294,20 +296,36 @@ const WindEnergyTrivia = ({
   };
 
   const completeGame = async () => {
-    const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-    const ecoPoints = Math.floor(score / 2);
+  const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+  const ecoPoints = Math.floor(score / 2);
 
-    // Add points via prop
-    await addPointsForUser(ecoPoints);
+  // 1) get user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
 
-    // Log activity
-    await logActivity(ecoPoints);
+  // 2) insert lesson completion record
+  await supabase.from('eco_activity').insert({
+    user_id: user.id,
+    active_date: new Date().toISOString(),
+    activity_type: 'lesson_5',   // map to correct lesson id
+    status: 'submitted',         // or 'in-progress'
+    points: ecoPoints,
+  });
 
-    // Refresh points in parent
-    await onPointsUpdated();
+  // 3) existing points logic
+  await addPointsForUser(ecoPoints);
+  await logActivity(ecoPoints);
+  await onPointsUpdated();
 
-    setGameState('completed');
-  };
+  // 4) let parent know (so it can call fetchLessonStats)
+  if (onComplete) {
+  onComplete(ecoPoints);
+}
+
+
+  setGameState('completed');
+};
+
 
   const resetGame = () => {
     setGameState('menu');

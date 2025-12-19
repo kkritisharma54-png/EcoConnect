@@ -46,6 +46,7 @@ const EcoDashboard = ({
   const [refreshCalendar, setRefreshCalendar] = useState(false);
   const [ecoPoints, setEcoPoints] = useState(0);
   const maxEcoPoints = 1500;
+  const [lessonsLearned, setLessonsLearned] = useState(0);
 useEffect(() => {
   const fetchUserChallenges = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -91,6 +92,26 @@ useEffect(() => {
   };
   fetchPoints();
 }, []);
+useEffect(() => {
+  const fetchLessonsLearned = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { count, error } = await supabase
+      .from('eco_activity')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .like('activity_type', 'lesson_%')
+      .eq('status', 'submitted');
+
+    if (!error) {
+      setLessonsLearned(count || 0);
+    }
+  };
+
+  fetchLessonsLearned();
+}, []);
+
   const progressPercentage = (ecoPoints / maxEcoPoints) * 100;
   // Floating animation timer
   useEffect(() => {
@@ -195,7 +216,7 @@ useEffect(() => {
 },
     {
       title: 'Lessons Learned',
-      value: 8,
+      value: lessonsLearned,
       icon: BookOpen,
       color: 'from-blue-500 to-cyan-500',
     },

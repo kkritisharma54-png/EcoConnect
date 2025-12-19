@@ -8,8 +8,8 @@ import { Progress } from '../ui/progress';
 interface TrashTagChallengeProps {
   onBack: () => void;
   userName: string;
-  onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
-
+  onComplete?: (points: number) => void;
+  
   // 🌱 eco integration
   addPointsForUser: (points: number) => Promise<void>;
   onPointsUpdated: () => Promise<void>;
@@ -257,24 +257,30 @@ const TrashTagChallenge = ({   onBack,
 const completeGame = async () => {
   const timeBonus = Math.max(0, timeRemaining * 2);
   const finalScore = score + timeBonus;
+
   setScore(finalScore);
   setGameStats(prev => ({ ...prev, timeBonus }));
+
   const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
   const maxScore = selectedArea
-    ? (selectedArea.trashCount * 30) + (selectedArea.timeLimit * 2)
+    ? selectedArea.trashCount * 30 + selectedArea.timeLimit * 2
     : 500;
-  // 🌱 ECO POINTS
-  const ecoPoints = Math.floor(finalScore / 3);
-  // ✅ delegate to parent (ecolessons)
+
+  const ecoPoints = Math.floor(finalScore / 3); // points value EcoLessons expects
+
   try {
     await addPointsForUser(ecoPoints);
     await onPointsUpdated();
   } catch (err) {
     console.error('EcoPoints update failed:', err);
   }
+
   setGameState('completed');
-  onComplete?.(finalScore, maxScore, timeElapsed);
+
+  // ✅ send only points to parent (EcoLessons)
+  onComplete?.(ecoPoints);
 };
+
   const resetGame = () => {
     setGameState('menu');
     setSelectedArea(null);

@@ -97,21 +97,28 @@ const WaterConservationQuiz = ({
     if (currentQuestion + 1 < questions.length) {
       setCurrentQuestion(currentQuestion + 1);
     } else {
-      setGameComplete(true);
-      onComplete?.(score);
+  setGameComplete(true);
 
-      if (user && score > 0) {
-        const { error } = await supabase.from('eco_activity').insert([
-          {
-            user_id: user.id,
-            activity_type: 'quiz',
-            points: score,
-            description: 'Completed Water Conservation Quiz',
-          },
-        ]);
-        if (error) console.error('Failed to update points:', error.message);
-      }
-    }
+  // 1) compute finalScore for parent
+  const finalScore = score;
+
+  if (user && finalScore > 0) {
+    // 2) mark lesson completion in eco_activity
+    const { error } = await supabase.from('eco_activity').insert([
+      {
+        user_id: user.id,
+        activity_type: 'lesson_1', // or lesson_2 etc. based on which lesson this quiz belongs to
+        status: 'submitted',
+        points: finalScore,
+        description: 'Completed Water Conservation Quiz',
+      },
+    ]);
+    if (error) console.error('Failed to update points:', error.message);
+  }
+
+  // 3) notify parent so it can add points + refresh stats
+  onComplete?.(finalScore);
+}
   };
 
   const handleExitQuiz = () => {

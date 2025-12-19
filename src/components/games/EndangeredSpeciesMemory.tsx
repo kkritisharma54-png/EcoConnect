@@ -8,6 +8,7 @@ interface EndangeredSpeciesMemoryProps {
   userName: string;
   onPointsUpdated: () => Promise<void>;
   addPointsForUser: (points: number) => Promise<void>;
+  onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
 }
 interface Species {
   id: string;

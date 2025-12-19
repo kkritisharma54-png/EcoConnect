@@ -65,6 +65,9 @@ const EcoLessons = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedActivity, setSelectedActivity] = useState<any|null>(null);
   const [ecoPoints, setEcoPoints] = useState(0);
+  const [completedLessons, setCompletedLessons] = useState(0);
+const [inProgressLessons, setInProgressLessons] = useState(0);
+
   // Fetch eco points from eco_activity table
 const fetchPoints = useCallback(async () => {
   const { data: { user } } = await supabase.auth.getUser();
@@ -80,11 +83,39 @@ const fetchPoints = useCallback(async () => {
     setEcoPoints(0);
   }
 }, []);
+  const fetchLessonStats = useCallback(async () => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // Count completed lessons
+  const { count: completedCount } = await supabase
+    .from('eco_activity')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .like('activity_type', 'lesson_%')
+    .eq('status', 'submitted');
+
+  // Count in-progress lessons
+  const { count: inProgressCount } = await supabase
+    .from('eco_activity')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .like('activity_type', 'lesson_%')
+    .eq('status', 'in-progress');
+
+  setCompletedLessons(completedCount || 0);
+  setInProgressLessons(inProgressCount || 0);
+}, []);
+
   useEffect(() => { fetchPoints(); }, [fetchPoints]);
   useEffect(() => {
     const timer = setTimeout(() => setShowFloatingElements(true), 300);
     return () => clearTimeout(timer);
   }, []);
+  useEffect(() => {
+  fetchLessonStats();
+}, [fetchLessonStats]);
+
   const categories = [
     { id: 'water', name: 'Water', icon: Droplets, color: 'text-blue-600', bgColor: 'bg-blue-100' },
     { id: 'energy', name: 'Energy', icon: Zap, color: 'text-yellow-600', bgColor: 'bg-yellow-100' },
@@ -316,9 +347,6 @@ const fetchPoints = useCallback(async () => {
   });
 
   // Stats
-  const completedLessons = lessons.filter((l: { status: string; }) => l.status === 'completed').length;
-  const inProgressLessons = lessons.filter((l: { status: string; }) => l.status === 'in-progress').length;
-
   const floatingElements = [
     { Icon: Leaf, position: { top: '8%', left: '3%' } },
     { Icon: TreePine, position: { top: '12%', right: '5%' } },
@@ -365,7 +393,10 @@ const fetchPoints = useCallback(async () => {
       .insert([{ user_id: user.id, points,active_date: new Date().toISOString() }]);
 
     if (error) console.error('Error adding points:', error.message);
-    else fetchPoints();
+    else {
+      fetchPoints();
+      fetchLessonStats();
+    }
   };
 
   // All games get these common props
@@ -373,40 +404,283 @@ const fetchPoints = useCallback(async () => {
 
   switch (selectedActivity.id) {
     case 'water-sim':
-      return <WaterUsageSimulator onComplete={addPointsForUser} {...commonProps} />;
+  return (
+    <WaterUsageSimulator
+      onComplete={async (points) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('eco_activity').insert({
+            user_id: user.id,
+            active_date: new Date().toISOString(),
+            activity_type: 'lesson_1',  // water lesson
+            status: 'submitted',
+            points,
+          });
+        }
+
+        await addPointsForUser(points);
+        fetchLessonStats();
+      }}
+      {...commonProps}
+    />
+  );
+
     case 'leak-puzzle':
-      return <LeakDetectionPuzzle {...commonProps} />;
-    case 'water-quiz':
-      return <WaterConservationQuiz
-        onComplete={addPointsForUser}
-        onExit={handleGameBack}
-      />;
+  return (
+    <LeakDetectionPuzzle
+      onComplete={async (points) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('eco_activity').insert({
+            user_id: user.id,
+            active_date: new Date().toISOString(),
+            activity_type: 'lesson_1',  // water lesson
+            status: 'submitted',
+            points,
+          });
+        }
+
+        await addPointsForUser(points);
+        fetchLessonStats();
+      }}
+      {...commonProps}
+    />
+  );
+
+case 'water-quiz':
+  return (
+    <WaterConservationQuiz
+      onComplete={async (points) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('eco_activity').insert({
+            user_id: user.id,
+            active_date: new Date().toISOString(),
+            activity_type: 'lesson_1',  // same lesson
+            status: 'submitted',
+            points,
+          });
+        }
+
+        await addPointsForUser(points);
+        fetchLessonStats();
+      }}
+      {...commonProps}
+    />
+  );
+
     case 'solar-puzzles':
-      return <SolarPuzzles {...commonProps} />;
+  return (
+    <SolarPuzzles
+      onComplete={async (points) => {
+        // 1) mark lesson 2 as completed in eco_activity
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('eco_activity').insert({
+            user_id: user.id,
+            active_date: new Date().toISOString(),
+            activity_type: 'lesson_2',  // solar lesson
+            status: 'submitted',        // completed
+            points,
+          });
+        }
+
+        // 2) existing logic
+        await addPointsForUser(points);
+        fetchLessonStats();
+      }}
+      {...commonProps}
+    />
+  );
     case 'solar-word-game':
-      return <SolarWordGame {...commonProps} />;
-    case 'compost-jar':
-      return <CompostJarProject  {...commonProps} onComplete={async (points) => {
-    await commonProps.addPointsForUser(points);
-    await commonProps.onPointsUpdated();
-    commonProps.onBack();
-  }}/>;
-    case 'compost-hunt':
-      return <CompostScavengerHunt {...commonProps} />;
-    case 'species-memory':
-      return <EndangeredSpeciesMemory {...commonProps} />;
-    case 'habitat-explorer':
-      return <HabitatExplorer {...commonProps} />;
-    case 'wind-trivia':
-      return <WindEnergyTrivia {...commonProps} />;
-    case 'wind-turbine-build':
-      return <WindTurbineBuild  {...commonProps} addPointsForUser={commonProps.addPointsForUser} />;
-    case 'seed-bomb-toss':
-      return <SeedBombToss
-    {...commonProps}
-  />;
-    case 'trash-tag-challenge':
-      return <TrashTagChallenge {...commonProps} />;
+  return (
+    <SolarWordGame
+      onComplete={async (points) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('eco_activity').insert({
+            user_id: user.id,
+            active_date: new Date().toISOString(),
+            activity_type: 'lesson_2',   // solar
+            status: 'submitted',
+            points,
+          });
+        }
+        await addPointsForUser(points);
+        fetchLessonStats();
+      }}
+      {...commonProps}
+    />
+  );
+
+case 'compost-jar':
+  return (
+    <CompostJarProject
+      {...commonProps}
+      onComplete={async (points) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('eco_activity').insert({
+            user_id: user.id,
+            active_date: new Date().toISOString(),
+            activity_type: 'lesson_3',   // compost
+            status: 'submitted',
+            points,
+          });
+        }
+        await addPointsForUser(points);
+        fetchLessonStats();
+      }}
+    />
+  );
+
+case 'compost-hunt':
+  return (
+    <CompostScavengerHunt
+      onComplete={async (points) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('eco_activity').insert({
+            user_id: user.id,
+            active_date: new Date().toISOString(),
+            activity_type: 'lesson_3',   // compost
+            status: 'submitted',
+            points,
+          });
+        }
+        await addPointsForUser(points);
+        fetchLessonStats();
+      }}
+      {...commonProps}
+    />
+  );
+
+case 'species-memory':
+  return (
+    <EndangeredSpeciesMemory
+      onComplete={async (points) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('eco_activity').insert({
+            user_id: user.id,
+            active_date: new Date().toISOString(),
+            activity_type: 'lesson_4',   // biodiversity
+            status: 'submitted',
+            points,
+          });
+        }
+        await addPointsForUser(points);
+        fetchLessonStats();
+      }}
+      {...commonProps}
+    />
+  );
+
+case 'habitat-explorer':
+  return (
+    <HabitatExplorer
+      onComplete={async (points) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('eco_activity').insert({
+            user_id: user.id,
+            active_date: new Date().toISOString(),
+            activity_type: 'lesson_4',   // biodiversity
+            status: 'submitted',
+            points,
+          });
+        }
+        await addPointsForUser(points);
+        fetchLessonStats();
+      }}
+      {...commonProps}
+    />
+  );
+
+case 'wind-trivia':
+  return (
+    <WindEnergyTrivia
+      onComplete={async (points) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('eco_activity').insert({
+            user_id: user.id,
+            active_date: new Date().toISOString(),
+            activity_type: 'lesson_5',   // wind
+            status: 'submitted',
+            points,
+          });
+        }
+        await addPointsForUser(points);
+        fetchLessonStats();
+      }}
+      {...commonProps}
+    />
+  );
+
+case 'wind-turbine-build':
+  return (
+    <WindTurbineBuild
+      onComplete={async (points) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('eco_activity').insert({
+            user_id: user.id,
+            active_date: new Date().toISOString(),
+            activity_type: 'lesson_5',   // wind
+            status: 'submitted',
+            points,
+          });
+        }
+        await addPointsForUser(points);
+        fetchLessonStats();
+      }}
+      {...commonProps}
+    />
+  );
+
+case 'seed-bomb-toss':
+  return (
+    <SeedBombToss
+      onComplete={async (points) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('eco_activity').insert({
+            user_id: user.id,
+            active_date: new Date().toISOString(),
+            activity_type: 'lesson_4',   // nature / biodiversity
+            status: 'submitted',
+            points,
+          });
+        }
+        await addPointsForUser(points);
+        fetchLessonStats();
+      }}
+      {...commonProps}
+    />
+  );
+
+case 'trash-tag-challenge':
+  return (
+    <TrashTagChallenge
+      onComplete={async (points) => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from('eco_activity').insert({
+            user_id: user.id,
+            active_date: new Date().toISOString(),
+            activity_type: 'lesson_6',   // zero-waste
+            status: 'submitted',
+            points,
+          });
+        }
+        await addPointsForUser(points);
+        fetchLessonStats();
+      }}
+      {...commonProps}
+    />
+  );
+
     default:
       return (
         <div className="relative min-h-screen bg-gradient-to-br from-emerald-50 via-green-50 to-teal-50 p-4">
@@ -480,36 +754,37 @@ const fetchPoints = useCallback(async () => {
           </div>
         </div>
         {/* Stats Overview */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-emerald-200 dark:border-gray-700">
-            <CardContent className="p-4 text-center">
-              <CheckCircle className="text-green-600 dark:text-green-400 mx-auto mb-2" size={24} />
-              <div className="text-xl text-slate-800 dark:text-gray-200">{completedLessons}</div>
-              <div className="text-sm text-slate-600 dark:text-gray-400">Completed</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-emerald-200 dark:border-gray-700">
-            <CardContent className="p-4 text-center">
-              <Play className="text-blue-600 dark:text-blue-400 mx-auto mb-2" size={24} />
-              <div className="text-xl text-slate-800 dark:text-gray-200">{inProgressLessons}</div>
-              <div className="text-sm text-slate-600 dark:text-gray-400">In Progress</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-emerald-200 dark:border-gray-700">
-            <CardContent className="p-4 text-center">
-              <Award className="text-yellow-600 dark:text-yellow-400 mx-auto mb-2" size={24} />
-              <div className="text-xl text-slate-800 dark:text-gray-200">{ecoPoints}</div>
-              <div className="text-sm text-slate-600 dark:text-gray-400">Points Earned</div>
-            </CardContent>
-          </Card>
-          <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-emerald-200 dark:border-gray-700">
-            <CardContent className="p-4 text-center">
-              <BookOpen className="text-emerald-600 dark:text-emerald-400 mx-auto mb-2" size={24} />
-              <div className="text-xl text-slate-800 dark:text-gray-200">{lessons.length}</div>
-              <div className="text-sm text-slate-600 dark:text-gray-400">Total Lessons</div>
-            </CardContent>
-          </Card>
-        </div>
+<div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+  <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-emerald-200 dark:border-gray-700">
+    <CardContent className="p-4 text-center">
+      <CheckCircle className="text-green-600 dark:text-green-400 mx-auto mb-2" size={24} />
+      <div className="text-xl text-slate-800 dark:text-gray-200">{completedLessons}</div>
+      <div className="text-sm text-slate-600 dark:text-gray-400">Completed</div>
+    </CardContent>
+  </Card>
+  <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-emerald-200 dark:border-gray-700">
+    <CardContent className="p-4 text-center">
+      <Play className="text-blue-600 dark:text-blue-400 mx-auto mb-2" size={24} />
+      <div className="text-xl text-slate-800 dark:text-gray-200">{inProgressLessons}</div>
+      <div className="text-sm text-slate-600 dark:text-gray-400">In Progress</div>
+    </CardContent>
+  </Card>
+  <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-emerald-200 dark:border-gray-700">
+    <CardContent className="p-4 text-center">
+      <Award className="text-yellow-600 dark:text-yellow-400 mx-auto mb-2" size={24} />
+      <div className="text-xl text-slate-800 dark:text-gray-200">{ecoPoints}</div>
+      <div className="text-sm text-slate-600 dark:text-gray-400">Points Earned</div>
+    </CardContent>
+  </Card>
+  <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-emerald-200 dark:border-gray-700">
+    <CardContent className="p-4 text-center">
+      <BookOpen className="text-emerald-600 dark:text-emerald-400 mx-auto mb-2" size={24} />
+      <div className="text-xl text-slate-800 dark:text-gray-200">{lessons.length}</div>
+      <div className="text-sm text-slate-600 dark:text-gray-400">Total Lessons</div>
+    </CardContent>
+  </Card>
+</div>
+
         {/* Filters and Search */}
         <div className="flex flex-col md:flex-row gap-4 mb-8">
           <div className="flex-1">
@@ -645,13 +920,14 @@ const fetchPoints = useCallback(async () => {
                     <p className="text-slate-600 dark:text-gray-400 text-sm mb-4 line-clamp-2">
                       {lesson.description}
                     </p>
-                    {lesson.progress > 0 && lesson.status !== 'completed' && (
+                    {Number(lesson.progress) > 0 && lesson.status !== 'completed' && (
+
                       <div className="mb-4">
                         <div className="flex items-center justify-between text-sm mb-1">
                           <span className="text-slate-600 dark:text-gray-400">Progress</span>
                           <span className="text-emerald-600 dark:text-emerald-400">{lesson.progress}%</span>
                         </div>
-                        <Progress value={lesson.progress} className="h-2" />
+                        <Progress value={Number(lesson.progress)} className="h-2" />
                       </div>
                     )}
                     <div className="flex items-center justify-between text-sm text-slate-600 dark:text-gray-400 mb-4">
@@ -703,7 +979,7 @@ const fetchPoints = useCallback(async () => {
           className="w-full justify-start text-xs border-emerald-200 dark:border-gray-600 hover:bg-emerald-50 dark:hover:bg-gray-800"
           onClick={(e: { stopPropagation: () => void; }) => {
             e.stopPropagation();
-            handleActivityClick(activity, lesson.title);
+            handleActivityClick(activity, String(lesson.title));
           }}
         >
           <Gamepad2 size={12} className="mr-2" />

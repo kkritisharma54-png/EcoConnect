@@ -10,7 +10,7 @@ interface SolarWordGameProps {
   userName?: string;
   onPointsUpdated: () => Promise<void>;
   addPointsForUser: (points: number) => Promise<void>;
-  onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
+  onComplete?: (points: number) => void;
 }
 interface WordClue {
   word: string;
@@ -63,21 +63,7 @@ const SolarWordGame = ({ onBack, userName = 'Player',onPointsUpdated,addPointsFo
       setStartTime(Date.now());
     }
   }, [gameState, currentLevel]);
-useEffect(() => {
-  if (gameState === 'completed' && !pointsUpdated) {
-    const ecoPoints = Math.floor(score / 10);
 
-    (async () => {
-      try {
-        await addPointsForUser(ecoPoints);
-        await onPointsUpdated();
-        setPointsUpdated(true);
-      } catch (err) {
-        console.error('EcoPoints update failed:', err);
-      }
-    })();
-  }
-}, [gameState, score, addPointsForUser, onPointsUpdated, pointsUpdated]);
   const startGame = (level: 'basic' | 'intermediate' | 'advanced') => {
     setCurrentLevel(level);
     setGameState('playing');
@@ -132,11 +118,16 @@ useEffect(() => {
     }
   };
   const completeGame = () => {
-    const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-    const maxScore = currentWords.reduce((sum, word) => sum + word.points, 0);
-    setGameState('completed');
-    onComplete?.(score, maxScore, timeElapsed);
-  };
+  const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
+  const maxScore = currentWords.reduce((sum, word) => sum + word.points, 0);
+  const ecoPoints = Math.floor(score / 10); // same formula you use in UI
+
+  setGameState('completed');
+
+  // ✅ send ecoPoints only; EcoLessons will add points + fetchLessonStats
+  onComplete?.(ecoPoints);
+};
+
   const resetGame = () => {
     setGameState('menu');
     setScore(0);

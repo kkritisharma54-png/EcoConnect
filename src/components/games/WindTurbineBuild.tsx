@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
 import { Slider } from '../ui/slider';
-
+import { supabase } from '../../supabaseClient';
 interface WindTurbineBuildProps {
   onBack: () => void;
   userName?: string;
@@ -262,18 +262,36 @@ const WindTurbineBuild = ({ onBack, userName = 'Player', onComplete,addPointsFor
   };
   const completeGame = async () => {
   const timeElapsed = Math.floor((Date.now() - startTime) / 1000);
-  const maxScore = 800; // Maximum possible score
+  const maxScore = 800;
 
-  const ecoPoints = Math.floor(score / 4); // Calculate points as before
-  setGameState('completed');
+  const ecoPoints = Math.floor(score / 4);
+
+  // 1) get user
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return;
+
+  // 2) insert lesson completion row
+  await supabase.from('eco_activity').insert({
+    user_id: user.id,
+    active_date: new Date().toISOString(),
+    activity_type: 'lesson_5',  // map to Wind Energy Systems
+    status: 'submitted',
+    points: ecoPoints,
+  });
+
+  // 3) award points via parent helper
+  try {
+    await addPointsForUser(ecoPoints);
+  } catch (error) {
+    console.error('Failed to add eco points:', error);
+  }
+
+  // 4) notify parent (for fetchLessonStats in EcoLessons)
   onComplete?.(score, maxScore, timeElapsed);
 
-  try {
-    await addPointsForUser(ecoPoints); // <-- Add points to eco_activity table
-  } catch (error) {
-    console.error("Failed to add eco points:", error);
-  }
+  setGameState('completed');
 };
+
 
   const resetGame = () => {
     setGameState('menu');

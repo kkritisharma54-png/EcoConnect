@@ -6,8 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Progress } from '../ui/progress';
 
 interface CompostJarProjectProps {
-  onComplete: (points: number) => void;
   onBack: () => void;
+  userName: string;
+  onPointsUpdated: () => Promise<void>;
+  addPointsForUser: (points: number) => Promise<void>;
+  onComplete?: (score: number, maxScore: number, timeElapsed: number) => void;
 }
 
 interface CompostItem {
